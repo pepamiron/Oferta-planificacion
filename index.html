@@ -857,6 +857,7 @@ function tryMerge() {
 
   currentPage = 1;
   render();
+  if (window.NTC_onOfertaLista) window.NTC_onOfertaLista();
 }
 
 function currentFiltered() {
@@ -2164,33 +2165,44 @@ async function ntcGuardarHistorial(firmas){
   }
 }
 
-document.getElementById('btn-ver-calendarios').addEventListener('click', async function(){
-  this.textContent = 'Calculando…';
-  var csv = window.NTC_getOfertaCSV && window.NTC_getOfertaCSV();
-  var filas = window.NTC_getOfertaFilas && window.NTC_getOfertaFilas();
-  if (!csv || !filas) {
-    alert('Antes calcula la oferta: carga el informe y ten cargados los coeficientes.');
-    this.textContent = 'Calcular oferta';
+document.getElementById('btn-ver-calendarios').textContent = 'Guardar como referencia';
+
+var ntcUltimasFirmas = null;   // huellas de la última oferta calculada, listas para guardar
+var ntcCalculando = false;
+
+async function ntcAutoCalcularCalendario(){
+  if (ntcCalculando) return;
+  ntcCalculando = true;
+  try {
+    var csv = window.NTC_getOfertaCSV && window.NTC_getOfertaCSV();
+    var filas = window.NTC_getOfertaFilas && window.NTC_getOfertaFilas();
+    if (!csv || !filas) return; // aún no hay informe+coeficientes suficientes para calcular
+
+    var firmasActuales = ntcFirmarPorCentro(filas);
+    var firmasAnteriores = await ntcFetchHistorial();
+    if (firmasAnteriores === null) firmasAnteriores = {}; // sin histórico disponible: se muestra igual, sin marcar cambios
+
+    var modificadas = ntcCalcularModificaciones(firmasActuales, firmasAnteriores);
+    window.NTC_setModificadas(modificadas);
+
+    await ntcCargarMaestro();
+
+    window.NTC_cargarOfertaDesdeCSV(csv);
+    ntcUltimasFirmas = firmasActuales;
+    console.log('[NTC] Calendarios actualizados automáticamente.');
+  } finally {
+    ntcCalculando = false;
+  }
+}
+window.NTC_onOfertaLista = ntcAutoCalcularCalendario;
+
+document.getElementById('btn-ver-calendarios').addEventListener('click', function(){
+  if (!ntcUltimasFirmas) {
+    alert('Todavía no hay una oferta calculada (espera a que cargue el informe y los coeficientes).');
     return;
   }
-
-  var firmasActuales = ntcFirmarPorCentro(filas);
-  var firmasAnteriores = await ntcFetchHistorial();
-  if (firmasAnteriores === null){
-    if (!confirm('No se ha podido comprobar el histórico de cambios. ¿Continuar sin detectar modificaciones?')) return;
-    firmasAnteriores = {};
-  }
-  var modificadas = ntcCalcularModificaciones(firmasActuales, firmasAnteriores);
-  window.NTC_setModificadas(modificadas);
-
-  await ntcCargarMaestro();
-
-  var ok = window.NTC_cargarOfertaDesdeCSV(csv);
-  if (!ok) return;
-  document.getElementById('btn-ver-calendarios').textContent = 'Oferta calculada ✓ — pulsa "2. Calendarios por tienda" para verla';
-
   if (confirm('¿Guardar esta oferta como referencia para detectar cambios la próxima vez? (sustituye la anterior)')){
-    ntcGuardarHistorial(firmasActuales);
+    ntcGuardarHistorial(ntcUltimasFirmas);
   }
 });
 </script>
