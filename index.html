@@ -230,6 +230,7 @@
   <button id="tab-btn-oferta" class="active">1. Oferta y coeficientes</button>
   <button id="tab-btn-cal">2. Calendarios por tienda</button>
   <span style="flex:1;"></span>
+  <span id="btn-ver-calendarios-nota" style="font-size:12px;color:#777;"></span>
   <button id="btn-ver-calendarios" style="border-radius:8px;background:#2F9E5B;color:#fff;border:none;font-weight:700;padding:9px 16px;">Calcular oferta</button>
 </div>
 
@@ -2135,6 +2136,8 @@ function ntcCalcularModificaciones(firmasActuales, firmasAnteriores){
   return resultado;
 }
 
+var ntcUltimoGuardadoEl = null; // fecha de la última referencia guardada, para avisar antes de sustituirla
+
 async function ntcFetchHistorial(){
   try {
     var res = await fetch('https://api.jsonbin.io/v3/b/' + NTC_HIST_BIN_ID + '/latest', {
@@ -2142,6 +2145,7 @@ async function ntcFetchHistorial(){
     });
     var body = await res.json().catch(function(){ return null; });
     if (!res.ok) throw new Error('HTTP ' + res.status + (body && body.message ? ' — ' + body.message : ''));
+    ntcUltimoGuardadoEl = (body && body.guardadoEl) || null;
     return (body && body.firmas) || {};
   } catch (e) {
     console.warn('No se pudo leer el histórico de oferta (bin ' + NTC_HIST_BIN_ID + '):', e.message);
@@ -2189,6 +2193,12 @@ async function ntcAutoCalcularCalendario(){
 
     window.NTC_cargarOfertaDesdeCSV(csv);
     ntcUltimasFirmas = firmasActuales;
+    var nota = document.getElementById('btn-ver-calendarios-nota');
+    if (nota) {
+      nota.textContent = ntcUltimoGuardadoEl
+        ? 'Referencia guardada el ' + new Date(ntcUltimoGuardadoEl).toLocaleString('es-ES')
+        : 'Todavía no hay ninguna referencia guardada';
+    }
     console.log('[NTC] Calendarios actualizados automáticamente.');
   } finally {
     ntcCalculando = false;
@@ -2201,7 +2211,12 @@ document.getElementById('btn-ver-calendarios').addEventListener('click', functio
     alert('Todavía no hay una oferta calculada (espera a que cargue el informe y los coeficientes).');
     return;
   }
-  if (confirm('¿Guardar esta oferta como referencia para detectar cambios la próxima vez? (sustituye la anterior)')){
+  var aviso = 'Vas a sustituir la referencia COMPARTIDA que usa todo el equipo para detectar cambios.\n\n' +
+    (ntcUltimoGuardadoEl
+      ? 'Referencia actual guardada el ' + new Date(ntcUltimoGuardadoEl).toLocaleString('es-ES') + '.\n\n'
+      : 'Todavía no hay ninguna referencia guardada.\n\n') +
+    'Esta acción no se puede deshacer. ¿Seguro que quieres continuar?';
+  if (confirm(aviso)){
     ntcGuardarHistorial(ntcUltimasFirmas);
   }
 });
