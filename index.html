@@ -1763,8 +1763,8 @@ $('verManual').addEventListener('click', function(e){
 
 /* --- Aplicar el CSV de modificaciones sobre la oferta inicial --- */
 function aplicarMods(){
+  if (!MODS) return; // ya no se usa el CSV de Modificaciones: no tocar MODIFICADAS
   MODIFICADAS = {};
-  if (!MODS) return;
   Object.keys(MODS.stores).forEach(function(c){
     var src = MODS.stores[c];
     var dst = DATOS.stores[c];
