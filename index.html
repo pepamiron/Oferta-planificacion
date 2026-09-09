@@ -209,6 +209,7 @@
   @media print {
     html, body { background: #fff !important; }
     #bar, #inicio { display: none !important; }
+    .ntc-tabs { display: none !important; }
     #doc { display: block !important; padding: 0 !important; margin: 0 !important;
            width: auto !important; gap: 0 !important; }
     .page { box-shadow: none !important; border-radius: 0 !important;
@@ -2079,7 +2080,7 @@ async function ntcCargarMaestro(){
 }
 
 var NTC_HIST_BIN_ID = '6aa00fb0ac6210605ab3b3dd';
-var NTC_KEY_STORAGE = 'ntc_coef_jsonbin_masterkey';
+var NTC_KEY_STORAGE = 'ntc_historial_jsonbin_masterkey'; // clave PROPIA del histórico, separada de la de coeficientes
 
 function ntcGetMasterKey(forcePrompt){
   var key = null;
