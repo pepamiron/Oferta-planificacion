@@ -605,7 +605,25 @@ async function fetchInformeFromSheet(showAsUpdating) {
     tryMerge();
     return true;
   } catch (e) {
-    setInformeSyncNote('No se pudo cargar desde Sheets: ' + e.message + '. Usando la copia guardada en este navegador si existe.', true);
+    setInformeSyncNote('No se pudo cargar desde Sheets: ' + e.message + '. Buscando una copia guardada en este navegador…', true);
+    const saved = loadInformeFromLocalStorage();
+    if (saved && saved.csv) {
+      try {
+        informeRows = procesarInformeCSV(saved.csv);
+        document.getElementById('dz-informe').classList.add('filled');
+        setStatus('status-informe',
+          informeRows.length.toLocaleString('es-ES') + ' filas — Sheets no respondió, usando la copia guardada el ' +
+          new Date(saved.savedAt).toLocaleString('es-ES') + '.', true);
+        ntcInformeFuente = 'cache';
+        ntcInformeFuenteFecha = new Date(saved.savedAt);
+        setInformeSyncNote('Sin conexión con Sheets. Mostrando copia guardada el ' + ntcInformeFuenteFecha.toLocaleString('es-ES') + '.', true);
+        tryMerge();
+      } catch (e2) {
+        setInformeSyncNote('No se pudo cargar desde Sheets ni usar la copia guardada: ' + e.message, true);
+      }
+    } else {
+      setInformeSyncNote('No se pudo cargar desde Sheets y no hay copia guardada en este navegador: ' + e.message, true);
+    }
     return false;
   }
 }
@@ -670,21 +688,6 @@ function procesarInformeCSV(rawText) {
 // Arranque: primero pinta la copia local (si hay) para que se vea algo al instante,
 // luego intenta refrescar desde el Sheets compartido (fuente de verdad para todos).
 (function initInforme() {
-  const saved = loadInformeFromLocalStorage();
-  if (saved && saved.csv) {
-    try {
-      informeRows = procesarInformeCSV(saved.csv);
-      document.getElementById('dz-informe').classList.add('filled');
-      setStatus('status-informe',
-        informeRows.length.toLocaleString('es-ES') + ' filas — cargadas desde tu navegador (guardadas el ' +
-        new Date(saved.savedAt).toLocaleString('es-ES') + ').', false);
-      ntcInformeFuente = 'cache';
-      ntcInformeFuenteFecha = new Date(saved.savedAt);
-      tryMerge();
-    } catch (e) {
-      // Si el CSV guardado ya no es válido, se ignora y se espera a la carga desde Sheets.
-    }
-  }
   fetchInformeFromSheet(false);
 })();
 
@@ -2125,12 +2128,18 @@ async function ntcAutoCalcularCalendario(){
     if (infoFuente && infoFuente.origen) {
       window.NTC_setFuente(infoFuente.origen === 'sheets' ? 'sheets' : 'cache', infoFuente.fecha);
     }
+    var esEnVivo = !infoFuente || infoFuente.origen === 'sheets';
+    var btnGuardarRef = document.getElementById('btn-ver-calendarios');
+    btnGuardarRef.disabled = !esEnVivo;
+    btnGuardarRef.title = esEnVivo ? '' : 'Esperando datos en vivo de Sheets antes de poder guardar una referencia.';
 
     var nota = document.getElementById('btn-ver-calendarios-nota');
     if (nota) {
-      nota.textContent = ntcUltimoGuardadoEl
-        ? 'Referencia guardada el ' + new Date(ntcUltimoGuardadoEl).toLocaleString('es-ES')
-        : 'Todavía no hay ninguna referencia guardada';
+      nota.textContent = !esEnVivo
+        ? 'Mostrando copia guardada — esperando confirmación en vivo de Sheets…'
+        : (ntcUltimoGuardadoEl
+            ? 'Referencia guardada el ' + new Date(ntcUltimoGuardadoEl).toLocaleString('es-ES')
+            : 'Todavía no hay ninguna referencia guardada');
     }
     console.log('[NTC] Calendarios actualizados automáticamente.');
   } finally {
