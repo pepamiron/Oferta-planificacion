@@ -282,7 +282,7 @@
     <div class="coef-storage-note" id="informe-sync-note"></div>
     <div class="dropzone" id="dz-informe">
       <div class="label">Export de Metabase (informe base)</div>
-      <div class="hint">Se carga automáticamente desde el Sheets compartido. Solo hace falta subir un CSV a mano si quieres forzar una versión distinta.<br>CSV con columnas: Region, Centro, Fecha, Dia Semana, Mes, Oferta_NTC_TM, Oferta_NTC_TT, Vehiculos_TM, Vehiculos_TT<br>Query: <a href="https://metabase.prod.monline/question/34531-oferta-diaria" target="_blank" rel="noopener">Oferta diaria · Metabase</a></div>
+      <div class="hint">Se carga automáticamente desde el Sheets compartido. Solo hace falta subir un CSV a mano si quieres forzar una versión distinta.<br>CSV con columnas: Region, Centro, Fecha, Dia Semana, Mes, Oferta_NTC_TM, Oferta_NTC_TT, Vehiculos_TM, Vehiculos_TT<br>Para actualizar el informe: 1) ejecutar la query en <a href="https://metabase.prod.monline/question/34531-oferta-diaria" target="_blank" rel="noopener">Oferta diaria · Metabase</a> y 2) pegar el resultado en la pestaña <a href="https://docs.google.com/spreadsheets/d/16-h2Cs0L7eOu5WBPS02-dVW42-O_6YQVBNMa9_0rh5A/edit?gid=339672451#gid=339672451" target="_blank" rel="noopener">"Oferta Negocio" del Sheets</a>.</div>
       <input type="file" id="file-informe" accept=".csv">
       <div class="status" id="status-informe"></div>
       <div class="toolbar" style="margin:8px 0 0;">
@@ -660,6 +660,9 @@ function setInformeSyncNote(msg, isError) {
   el.style.color = isError ? '#b3401f' : '';
 }
 
+var ntcInformeFuente = null; // 'sheets' | 'cache', para el indicador del calendario
+var ntcInformeFuenteFecha = null;
+
 async function fetchInformeFromSheet(showAsUpdating) {
   setInformeSyncNote(showAsUpdating ? 'Actualizando desde Sheets…' : 'Cargando informe desde Sheets…', false);
   try {
@@ -671,7 +674,9 @@ async function fetchInformeFromSheet(showAsUpdating) {
     saveInformeToLocalStorage(text);
     setStatus('status-informe',
       informeRows.length.toLocaleString('es-ES') + ' filas — cargadas automáticamente desde Sheets.', false);
-    setInformeSyncNote('Sincronizado con Sheets ✓ (' + new Date().toLocaleString('es-ES') + ')', false);
+    ntcInformeFuente = 'sheets';
+    ntcInformeFuenteFecha = new Date();
+    setInformeSyncNote('Sincronizado con Sheets ✓ (' + ntcInformeFuenteFecha.toLocaleString('es-ES') + ')', false);
     tryMerge();
     return true;
   } catch (e) {
@@ -679,6 +684,9 @@ async function fetchInformeFromSheet(showAsUpdating) {
     return false;
   }
 }
+window.NTC_getInformeFuente = function(){
+  return { origen: ntcInformeFuente, fecha: ntcInformeFuenteFecha };
+};
 
 function saveInformeToLocalStorage(rawText) {
   try {
@@ -745,6 +753,8 @@ function procesarInformeCSV(rawText) {
       setStatus('status-informe',
         informeRows.length.toLocaleString('es-ES') + ' filas — cargadas desde tu navegador (guardadas el ' +
         new Date(saved.savedAt).toLocaleString('es-ES') + ').', false);
+      ntcInformeFuente = 'cache';
+      ntcInformeFuenteFecha = new Date(saved.savedAt);
       tryMerge();
     } catch (e) {
       // Si el CSV guardado ya no es válido, se ignora y se espera a la carga desde Sheets.
@@ -2025,6 +2035,11 @@ document.addEventListener('keydown', function(e){
 
 
 
+// --- Puente: indicador de si los datos son en vivo o de caché ---
+window.NTC_setFuente = function(origen, fecha){
+  setFuente(origen, fecha);
+  pintarFuente();
+};
 // --- Puente: recibe el maestro de tiendas ya cargado desde Sheets (prueba) ---
 window.NTC_setMaestroDesdeCSV = function(csvText){
   try {
@@ -2195,6 +2210,12 @@ async function ntcAutoCalcularCalendario(){
 
     window.NTC_cargarOfertaDesdeCSV(csv);
     ntcUltimasFirmas = firmasActuales;
+
+    var infoFuente = window.NTC_getInformeFuente ? window.NTC_getInformeFuente() : null;
+    if (infoFuente && infoFuente.origen) {
+      window.NTC_setFuente(infoFuente.origen === 'sheets' ? 'sheets' : 'cache', infoFuente.fecha);
+    }
+
     var nota = document.getElementById('btn-ver-calendarios-nota');
     if (nota) {
       nota.textContent = ntcUltimoGuardadoEl
