@@ -245,28 +245,20 @@
   <div class="panel">
     <h2>
       Coeficientes por centro y mes
-      <span class="toggle-link" id="toggle-coef">ver / editar</span>
+      <span class="toggle-link" id="toggle-coef">ver</span>
     </h2>
-    <div class="coef-storage-note" id="coef-storage-note">No hay coeficientes guardados en este navegador todavía. Sube el CSV o añade tiendas a mano.</div>
+    <div class="coef-storage-note" id="coef-storage-note">Cargando coeficientes…</div>
     <div class="coef-storage-note" id="coef-sync-note" style="margin-top:-8px;"></div>
-    <div class="dropzone" id="dz-coef" style="margin-bottom:12px;">
-      <div class="label">Cargar / reemplazar desde CSV</div>
-      <div class="hint">CSV con columnas: provincia, hive_code, 1..12 (coeficiente pedidos/oferta por mes, decimal con coma). Al cargarlo se guarda automáticamente en este navegador.</div>
-      <input type="file" id="file-coef" accept=".csv">
-      <div class="status" id="status-coef"></div>
+    <div class="toolbar" style="margin:6px 0 12px;">
+      <button class="secondary small" id="btn-sync-coef">🔄 Actualizar desde Sheets</button>
     </div>
     <div class="coef-panel" id="coef-panel">
-      <div class="toolbar">
-        <button class="secondary small" id="btn-add-coef-row">+ Añadir tienda</button>
-        <button class="small" id="btn-save-coef">Guardar coeficientes</button>
-        <button class="secondary small" id="btn-clear-coef">Borrar todo</button>
-        <button class="secondary small" id="btn-sync-coef">🔄 Sincronizar con JSONBin</button>
-      </div>
+      <div class="hint" style="margin-bottom:8px;">Solo lectura — estos coeficientes los gestiona su propietario en el Sheets. Si necesitas un cambio (añadir/quitar tienda o ajustar un valor), pídeselo a quien lo mantiene.</div>
       <div class="coef-table-wrap">
         <table class="coef-table" id="coef-table">
           <thead>
             <tr>
-              <th></th><th>Centro (hive_code)</th><th>Provincia</th>
+              <th>Centro (hive_code)</th><th>Provincia</th>
               <th>Ene</th><th>Feb</th><th>Mar</th><th>Abr</th><th>May</th><th>Jun</th>
               <th>Jul</th><th>Ago</th><th>Sep</th><th>Oct</th><th>Nov</th><th>Dic</th>
             </tr>
@@ -431,19 +423,8 @@ function clearCoefLocalStorage() {
   try { localStorage.removeItem(COEF_STORAGE_KEY); } catch (e) {}
 }
 
-// ---------- Sincronización JSONBin (coeficientes compartidos) ----------
-const JSONBIN_BIN_ID = '6a983246da38895dfe2fb6a5';
-const JSONBIN_KEY_STORAGE = 'ntc_coef_jsonbin_masterkey';
-
-function getJsonBinKey(forcePrompt) {
-  let key = null;
-  try { key = localStorage.getItem(JSONBIN_KEY_STORAGE); } catch (e) {}
-  if (!key || forcePrompt) {
-    key = prompt('Introduce tu Master Key de JSONBin (solo se guarda en este navegador, nunca en el archivo):', key || '');
-    if (key) { try { localStorage.setItem(JSONBIN_KEY_STORAGE, key.trim()); } catch (e) {} }
-  }
-  return key ? key.trim() : null;
-}
+// ---------- Coeficientes: fuente = Sheets (pestaña "BBDD Col/Ped"), solo lectura ----------
+const COEF_SHEET_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQpfV_priRpFanTSYLZR1_OHxAVl9lzrd01WluyvCuXmRRF8_KsBB9pIdPyYsb_Hg6FVQXMaHuiGEKe/pub?gid=1358878751&single=true&output=csv';
 
 function setSyncNote(msg, isError) {
   const el = document.getElementById('coef-sync-note');
@@ -451,46 +432,39 @@ function setSyncNote(msg, isError) {
   el.style.color = isError ? '#b3401f' : '';
 }
 
-async function fetchCoefFromJsonBin() {
-  setSyncNote('Comprobando JSONBin…', false);
-  try {
-    const res = await fetch(`https://api.jsonbin.io/v3/b/${JSONBIN_BIN_ID}/latest`, {
-      headers: { 'X-Bin-Meta': 'false' }
-    });
-    if (!res.ok) throw new Error('HTTP ' + res.status);
-    const data = await res.json();
-    if (Array.isArray(data) && data.length) {
-      coefList = data;
-      rebuildCoefMap();
-      saveCoefToLocalStorage(coefList);
-      renderCoefTable();
-      refreshCoefStorageNote();
-      setSyncNote('Sincronizado con JSONBin ✓', false);
-      if (informeRows) tryMerge();
-      return true;
-    }
-  } catch (e) {
-    setSyncNote('No se pudo contactar con JSONBin, usando la copia guardada en este navegador.', true);
-  }
-  return false;
+// Convierte texto CSV (provincia, hive_code, 1..12) en coefList. Lanza si faltan columnas.
+function parseCoefCSVText(text) {
+  const rows = parseCSV(text);
+  const header = rows[0].map(h => h.trim());
+  const iHive = header.indexOf('hive_code');
+  const iProv = header.indexOf('provincia');
+  if (iHive === -1) throw new Error("No encuentro la columna 'hive_code'.");
+  const mesCols = [];
+  for (let m = 1; m <= 12; m++) mesCols.push(header.indexOf(String(m)));
+  if (mesCols.some(v => v === -1)) throw new Error('Faltan columnas de mes (1..12) en la cabecera.');
+  return rows.slice(1).filter(r => r[iHive]).map(r => ({
+    hive: r[iHive].trim(),
+    provincia: iProv !== -1 ? r[iProv].trim() : '',
+    meses: mesCols.map(ci => { const v = toNumber(r[ci]); return isNaN(v) ? null : v; }),
+  }));
 }
 
-async function pushCoefToJsonBin(forcePrompt) {
-  const key = getJsonBinKey(forcePrompt);
-  if (!key) { setSyncNote('Sin Master Key: no se ha sincronizado con JSONBin (solo queda guardado en este navegador).', true); return false; }
-  setSyncNote('Subiendo a JSONBin…', false);
+async function fetchCoefFromSheet(showAsUpdating) {
+  setSyncNote(showAsUpdating ? 'Actualizando desde Sheets…' : 'Cargando coeficientes desde Sheets…', false);
   try {
-    const res = await fetch(`https://api.jsonbin.io/v3/b/${JSONBIN_BIN_ID}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json', 'X-Master-Key': key },
-      body: JSON.stringify(coefList)
-    });
-    const json = await res.json();
-    if (!res.ok) throw new Error(json.message || ('HTTP ' + res.status));
-    setSyncNote('Subido a JSONBin ✓ — tus compañeros ya ven estos coeficientes.', false);
+    const res = await fetch(COEF_SHEET_CSV_URL, { cache: 'no-store' });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const text = await res.text();
+    coefList = parseCoefCSVText(text);
+    rebuildCoefMap();
+    saveCoefToLocalStorage(coefList);
+    renderCoefTable();
+    setSyncNote('Sincronizado con Sheets ✓ (' + new Date().toLocaleString('es-ES') + ')', false);
+    refreshCoefStorageNote();
+    if (informeRows) tryMerge();
     return true;
   } catch (e) {
-    setSyncNote('Error subiendo a JSONBin: ' + e.message + ' (¿Master Key correcta?)', true);
+    setSyncNote('No se pudo cargar desde Sheets: ' + e.message + '. Usando la copia guardada en este navegador si existe.', true);
     return false;
   }
 }
@@ -552,7 +526,7 @@ function setStatus(id, msg, isError) {
   el.classList.toggle('error', !!isError);
 }
 
-// ---------- Coeficientes: construir mapa desde la lista editable ----------
+// ---------- Coeficientes: construir mapa desde la lista ----------
 function rebuildCoefMap() {
   coefMap = new Map();
   coefList.forEach(c => { if (c.hive) coefMap.set(c.hive, c.meses); });
@@ -560,95 +534,41 @@ function rebuildCoefMap() {
 
 function renderCoefTable() {
   const tbody = document.getElementById('coef-tbody');
-  tbody.innerHTML = coefList.map((c, idx) => `
-    <tr data-idx="${idx}">
-      <td><button class="del-row-btn" data-del="${idx}" title="Eliminar tienda">✕</button></td>
-      <td><input class="hive" data-field="hive" data-idx="${idx}" value="${c.hive || ''}"></td>
-      <td><input class="provincia" data-field="provincia" data-idx="${idx}" value="${c.provincia || ''}"></td>
-      ${c.meses.map((v, m) => `<td><input class="mes" data-field="mes${m}" data-idx="${idx}" value="${v === null || v === undefined || isNaN(v) ? '' : v}"></td>`).join('')}
+  tbody.innerHTML = coefList.map((c) => `
+    <tr>
+      <td>${c.hive || ''}</td>
+      <td>${c.provincia || ''}</td>
+      ${c.meses.map(v => `<td>${v === null || v === undefined || isNaN(v) ? '' : v}</td>`).join('')}
     </tr>`).join('');
 }
 
 function refreshCoefStorageNote() {
-  const saved = loadCoefFromLocalStorage();
   const note = document.getElementById('coef-storage-note');
-  if (coefList.length) {
-    const savedNote = saved ? ` (guardados el ${new Date(saved.savedAt).toLocaleString('es-ES')})` : ' (sin guardar todavía — pulsa "Guardar coeficientes")';
-    note.textContent = `${coefList.length} tiendas cargadas${savedNote}.`;
-  } else {
-    note.textContent = 'No hay coeficientes guardados en este navegador todavía. Sube el CSV o añade tiendas a mano.';
-  }
+  note.textContent = coefList.length
+    ? `${coefList.length} tiendas — datos de solo lectura, gestionados en el Sheets por su propietario.`
+    : 'Todavía no se han cargado coeficientes.';
 }
 
 // Carga inicial: primero la copia local (para que se vea algo al instante),
-// luego intenta refrescar desde JSONBin (fuente compartida con los compañeros).
+// luego intenta refrescar desde el Sheets (fuente de verdad).
 (function initCoef() {
   const saved = loadCoefFromLocalStorage();
   if (saved && Array.isArray(saved.list) && saved.list.length) {
     coefList = saved.list;
     rebuildCoefMap();
+    renderCoefTable();
   }
   refreshCoefStorageNote();
-  renderCoefTable();
-  fetchCoefFromJsonBin();
+  fetchCoefFromSheet(false);
 })();
 
 document.getElementById('toggle-coef').addEventListener('click', (e) => {
   const panel = document.getElementById('coef-panel');
   panel.classList.toggle('open');
-  e.target.textContent = panel.classList.contains('open') ? 'ocultar' : 'ver / editar';
+  e.target.textContent = panel.classList.contains('open') ? 'ocultar' : 'ver';
 });
 
-document.getElementById('btn-add-coef-row').addEventListener('click', () => {
-  coefList.push({ hive: '', provincia: '', meses: new Array(12).fill(null) });
-  renderCoefTable();
-  document.getElementById('coef-panel').classList.add('open');
-  document.getElementById('toggle-coef').textContent = 'ocultar';
-});
-
-document.getElementById('coef-tbody').addEventListener('click', (e) => {
-  const idx = e.target.dataset.del;
-  if (idx !== undefined) {
-    coefList.splice(Number(idx), 1);
-    renderCoefTable();
-  }
-});
-
-document.getElementById('coef-tbody').addEventListener('input', (e) => {
-  const idx = Number(e.target.dataset.idx);
-  const field = e.target.dataset.field;
-  if (field === 'hive') coefList[idx].hive = e.target.value.trim();
-  else if (field === 'provincia') coefList[idx].provincia = e.target.value.trim();
-  else if (field && field.startsWith('mes')) {
-    const m = parseInt(field.replace('mes', ''), 10);
-    const v = toNumber(e.target.value);
-    coefList[idx].meses[m] = isNaN(v) ? null : v;
-  }
-});
-
-document.getElementById('btn-save-coef').addEventListener('click', async () => {
-  rebuildCoefMap();
-  const ok = saveCoefToLocalStorage(coefList);
-  refreshCoefStorageNote();
-  setStatus('status-coef', ok ? 'Coeficientes guardados en este navegador.' : 'No se ha podido guardar (¿localStorage bloqueado?).', !ok);
-  if (informeRows) tryMerge();
-  await pushCoefToJsonBin(false);
-});
-
-document.getElementById('btn-sync-coef').addEventListener('click', async () => {
-  const gotRemote = await fetchCoefFromJsonBin();
-  if (!gotRemote) await pushCoefToJsonBin(true);
-});
-
-document.getElementById('btn-clear-coef').addEventListener('click', () => {
-  if (!confirm('¿Borrar todos los coeficientes guardados en este navegador?')) return;
-  coefList = [];
-  coefMap = new Map();
-  clearCoefLocalStorage();
-  renderCoefTable();
-  refreshCoefStorageNote();
-  if (informeRows) tryMerge();
-});
+document.getElementById('btn-sync-coef').addEventListener('click', () => fetchCoefFromSheet(true));
 
 const INFORME_STORAGE_KEY = 'ntc_informe_csv_v1';
 // Pestaña "Oferta Negocio" del Sheets, publicada en la web como CSV.
@@ -792,47 +712,6 @@ document.getElementById('file-informe').addEventListener('change', function (e) 
       tryMerge();
     } catch (err) {
       setStatus('status-informe', 'Error leyendo el CSV: ' + err.message, true);
-    }
-  };
-  reader.readAsText(f, 'UTF-8');
-});
-
-document.getElementById('file-coef').addEventListener('change', function (e) {
-  const f = e.target.files[0];
-  if (!f) return;
-  setStatus('status-coef', 'Leyendo…', false);
-  const reader = new FileReader();
-  reader.onload = async function () {
-    try {
-      const rows = parseCSV(reader.result);
-      const header = rows[0].map(h => h.trim());
-      const iHive = header.indexOf('hive_code');
-      const iProv = header.indexOf('provincia');
-      if (iHive === -1) {
-        setStatus('status-coef', "No encuentro la columna 'hive_code'.", true);
-        return;
-      }
-      const mesCols = [];
-      for (let m = 1; m <= 12; m++) mesCols.push(header.indexOf(String(m)));
-      if (mesCols.some(v => v === -1)) {
-        setStatus('status-coef', 'Faltan columnas de mes (1..12) en la cabecera.', true);
-        return;
-      }
-      coefList = rows.slice(1).filter(r => r[iHive]).map(r => ({
-        hive: r[iHive].trim(),
-        provincia: iProv !== -1 ? r[iProv].trim() : '',
-        meses: mesCols.map(ci => { const v = toNumber(r[ci]); return isNaN(v) ? null : v; }),
-      }));
-      rebuildCoefMap();
-      saveCoefToLocalStorage(coefList);
-      renderCoefTable();
-      refreshCoefStorageNote();
-      document.getElementById('dz-coef').classList.add('filled');
-      setStatus('status-coef', coefList.length + ' centros cargados y guardados en este navegador.', false);
-      if (informeRows) tryMerge();
-      await pushCoefToJsonBin(false);
-    } catch (err) {
-      setStatus('status-coef', 'Error leyendo el CSV: ' + err.message, true);
     }
   };
   reader.readAsText(f, 'UTF-8');
