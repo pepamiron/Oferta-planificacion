@@ -1934,6 +1934,17 @@ window.NTC_getListaTiendas = function(){
     return { centro: o.value, denominacion: (META[o.value] && META[o.value].denominacion) || '' };
   }).filter(function(o){ return o.centro; });
 };
+window.NTC_getListaCompleta = function(){
+  // Todas las tiendas, sin aplicar ningún filtro de texto (para el selector de PDFs).
+  return LISTA.map(function(c){
+    return {
+      centro: c,
+      denominacion: (META[c] && META[c].denominacion) || '',
+      poblacion: (META[c] && META[c].poblacion) || '',
+      modificada: MODIFICADAS[c] || null
+    };
+  });
+};
 // --- Puente: indicador de si los datos son en vivo o de caché ---
 window.NTC_setFuente = function(origen, fecha){
   setFuente(origen, fecha);
@@ -2147,20 +2158,7 @@ function ntcNombreArchivo(centro, anio){
   return 'C-' + centro + ' Planificación Anual Oferta ' + anio + ' - NTC.pdf';
 }
 
-document.getElementById('btn-pdf-todas').addEventListener('click', async function(){
-  if (!ntcUltimasFirmas) {
-    alert('Todavía no hay calendarios calculados (espera a que cargue el informe y los coeficientes).');
-    return;
-  }
-  var lista = window.NTC_getListaTiendas ? window.NTC_getListaTiendas() : [];
-  if (!lista.length) {
-    alert('No hay tiendas en la lista para exportar.');
-    return;
-  }
-  if (!confirm('Se van a generar ' + lista.length + ' PDF (uno por tienda). Puede tardar varios minutos y el navegador podría preguntar si permites varias descargas seguidas. ¿Continuar?')) return;
-
-  var nota = document.getElementById('btn-pdf-todas-nota');
-  var boton = this;
+async function ntcExportarPDFs(lista, nota, boton){
   boton.disabled = true;
 
   // Forzamos visible el panel de calendarios mientras se generan las capturas
@@ -2185,18 +2183,16 @@ document.getElementById('btn-pdf-todas').addEventListener('click', async functio
         if (!paginas.length) { fallidas.push(t.centro + ' (sin páginas)'); continue; }
 
         var pdf = null;
-        var ESCALA_CAPTURA = 2; // más resolución en la imagen, pero la página no debe medir esto
         for (var p = 0; p < paginas.length; p++) {
-          var canvas = await html2canvas(paginas[p], { scale: ESCALA_CAPTURA, backgroundColor: '#ffffff' });
+          var canvas = await html2canvas(paginas[p], { scale: 2, backgroundColor: '#ffffff' });
           var img = canvas.toDataURL('image/jpeg', 0.92);
-          var w = canvas.width / ESCALA_CAPTURA, h = canvas.height / ESCALA_CAPTURA; // tamaño real de página
           if (!pdf) {
-            pdf = new jspdf.jsPDF({ unit: 'px', format: [w, h], orientation: w > h ? 'landscape' : 'portrait' });
-            pdf.addImage(img, 'JPEG', 0, 0, w, h);
+            pdf = new jspdf.jsPDF({ unit: 'mm', format: 'a4', orientation: 'landscape' });
           } else {
-            pdf.addPage([w, h], w > h ? 'landscape' : 'portrait');
-            pdf.addImage(img, 'JPEG', 0, 0, w, h);
+            pdf.addPage('a4', 'landscape');
           }
+          // A4 apaisado real: 297 x 210 mm, a página completa (el diseño ya está pensado para eso, @page margin:0).
+          pdf.addImage(img, 'JPEG', 0, 0, 297, 210);
         }
         if (pdf) pdf.save(ntcNombreArchivo(t.centro, anio || new Date().getFullYear()));
         await new Promise(r => setTimeout(r, 350)); // margen entre descargas
@@ -2216,6 +2212,97 @@ document.getElementById('btn-pdf-todas').addEventListener('click', async functio
     panelCal.style.display = pestanaActiva ? '' : displayPrevio;
     boton.disabled = false;
   }
+}
+
+function ntcAbrirSelectorPDF(){
+  var completa = window.NTC_getListaCompleta ? window.NTC_getListaCompleta() : [];
+  if (!completa.length) { alert('Todavía no hay tiendas cargadas.'); return; }
+
+  var fondo = document.createElement('div');
+  fondo.style = 'position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9999;display:flex;align-items:center;justify-content:center;';
+
+  var caja = document.createElement('div');
+  caja.style = 'background:#fff;border-radius:10px;max-width:560px;width:92%;max-height:82vh;display:flex;flex-direction:column;overflow:hidden;font-family:Arial,Helvetica,sans-serif;';
+
+  var cabecera = document.createElement('div');
+  cabecera.style = 'padding:16px 20px 10px;border-bottom:1px solid #eee;';
+  cabecera.innerHTML = '<h3 style="margin:0 0 10px;font-size:16px;">Elegir tiendas para el PDF</h3>' +
+    '<input type="text" id="ntc-modal-buscar" placeholder="Filtrar por código o población..." style="width:100%;padding:8px;border:1px solid #ccc;border-radius:6px;box-sizing:border-box;">' +
+    '<div style="margin-top:8px;display:flex;gap:8px;">' +
+      '<button type="button" id="ntc-modal-todas" style="font-size:12px;padding:5px 10px;border:1px solid #ccc;border-radius:6px;background:#f5f5f5;cursor:pointer;">Marcar todas (visibles)</button>' +
+      '<button type="button" id="ntc-modal-ninguna" style="font-size:12px;padding:5px 10px;border:1px solid #ccc;border-radius:6px;background:#f5f5f5;cursor:pointer;">Desmarcar todas</button>' +
+    '</div>';
+
+  var lista = document.createElement('div');
+  lista.style = 'overflow-y:auto;padding:6px 20px;flex:1;';
+
+  completa.forEach(function(t){
+    var fila = document.createElement('label');
+    fila.style = 'display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid #f3f3f3;cursor:pointer;font-size:13.5px;';
+    fila.dataset.texto = (t.centro + ' ' + t.denominacion + ' ' + t.poblacion).toLowerCase();
+    var marca = t.modificada ? (t.modificada === 'nueva' ? '  ● NUEVA' : '  ● MODIFICADA') : '';
+    fila.innerHTML = '<input type="checkbox" class="ntc-modal-check" value="' + t.centro + '" style="width:auto;margin:0;">' +
+      '<span>' + t.centro + (t.denominacion ? ' · ' + t.denominacion : '') + marca + '</span>';
+    lista.appendChild(fila);
+  });
+
+  var pie = document.createElement('div');
+  pie.style = 'padding:12px 20px;border-top:1px solid #eee;display:flex;justify-content:space-between;align-items:center;gap:10px;';
+  var contador = document.createElement('span');
+  contador.style = 'font-size:12px;color:#666;';
+  contador.textContent = '0 seleccionadas';
+  var botones = document.createElement('div');
+  botones.innerHTML = '<button type="button" id="ntc-modal-cancelar" class="secondary small">Cancelar</button> ' +
+    '<button type="button" id="ntc-modal-descargar" class="small">Descargar PDF</button>';
+  pie.appendChild(contador);
+  pie.appendChild(botones);
+
+  caja.appendChild(cabecera);
+  caja.appendChild(lista);
+  caja.appendChild(pie);
+  fondo.appendChild(caja);
+  document.body.appendChild(fondo);
+
+  function actualizarContador(){
+    var n = lista.querySelectorAll('.ntc-modal-check:checked').length;
+    contador.textContent = n + ' seleccionada' + (n === 1 ? '' : 's');
+  }
+  function filasVisibles(){
+    return Array.from(lista.querySelectorAll('label')).filter(function(f){ return f.style.display !== 'none'; });
+  }
+
+  document.getElementById('ntc-modal-buscar').addEventListener('input', function(){
+    var q = this.value.trim().toLowerCase();
+    Array.from(lista.querySelectorAll('label')).forEach(function(f){
+      f.style.display = (!q || f.dataset.texto.indexOf(q) >= 0) ? '' : 'none';
+    });
+  });
+  document.getElementById('ntc-modal-todas').addEventListener('click', function(){
+    filasVisibles().forEach(function(f){ f.querySelector('input').checked = true; });
+    actualizarContador();
+  });
+  document.getElementById('ntc-modal-ninguna').addEventListener('click', function(){
+    lista.querySelectorAll('.ntc-modal-check').forEach(function(c){ c.checked = false; });
+    actualizarContador();
+  });
+  lista.addEventListener('change', actualizarContador);
+  document.getElementById('ntc-modal-cancelar').addEventListener('click', function(){ fondo.remove(); });
+
+  document.getElementById('ntc-modal-descargar').addEventListener('click', async function(){
+    var elegidas = Array.from(lista.querySelectorAll('.ntc-modal-check:checked')).map(function(c){ return { centro: c.value }; });
+    if (!elegidas.length) { alert('Marca al menos una tienda.'); return; }
+    if (!confirm('Se van a generar ' + elegidas.length + ' PDF. Puede tardar y el navegador podría preguntar si permites varias descargas seguidas. ¿Continuar?')) return;
+    fondo.remove();
+    await ntcExportarPDFs(elegidas, document.getElementById('btn-pdf-todas-nota'), document.getElementById('btn-pdf-todas'));
+  });
+}
+
+document.getElementById('btn-pdf-todas').addEventListener('click', function(){
+  if (!ntcUltimasFirmas) {
+    alert('Todavía no hay calendarios calculados (espera a que cargue el informe y los coeficientes).');
+    return;
+  }
+  ntcAbrirSelectorPDF();
 });
 </script>
 
