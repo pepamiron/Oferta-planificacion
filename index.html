@@ -4,6 +4,8 @@
 <meta charset="UTF-8">
 <title>PRUEBA · Oferta + Coeficientes + Calendarios</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/lz-string/1.5.0/lz-string.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <style>
 
   :root{
@@ -232,6 +234,9 @@
   <button id="tab-btn-oferta" class="active">1. Oferta y coeficientes</button>
   <button id="tab-btn-cal">2. Calendarios por tienda</button>
   <span style="flex:1;"></span>
+  <span style="flex:1;"></span>
+  <span id="btn-pdf-todas-nota" style="font-size:12px;color:#777;"></span>
+  <button id="btn-pdf-todas" style="border-radius:8px;background:#2563eb;color:#fff;border:none;font-weight:700;padding:9px 16px;">Descargar PDF de cada tienda</button>
   <span id="btn-ver-calendarios-nota" style="font-size:12px;color:#777;"></span>
   <button id="btn-ver-calendarios" style="border-radius:8px;background:#2F9E5B;color:#fff;border:none;font-weight:700;padding:9px 16px;">Calcular oferta</button>
 </div>
@@ -1914,6 +1919,20 @@ document.addEventListener('keydown', function(e){
 
 
 
+// --- Puente: pintar una tienda concreta y listar las tiendas visibles (para exportar PDFs) ---
+window.NTC_pintarTienda = function(centro){
+  var sel = document.getElementById('sel');
+  sel.value = centro;
+  pintar();
+  return DATOS.stores[centro] ? DATOS.stores[centro].anio : null;
+};
+window.NTC_getListaTiendas = function(){
+  // Respeta el filtro "Solo modificadas" ya aplicado al desplegable.
+  var sel = document.getElementById('sel');
+  return Array.from(sel.options).map(function(o){
+    return { centro: o.value, denominacion: (META[o.value] && META[o.value].denominacion) || '' };
+  }).filter(function(o){ return o.centro; });
+};
 // --- Puente: indicador de si los datos son en vivo o de caché ---
 window.NTC_setFuente = function(origen, fecha){
   setFuente(origen, fecha);
@@ -2120,6 +2139,72 @@ document.getElementById('btn-ver-calendarios').addEventListener('click', functio
     'Esta acción no se puede deshacer. ¿Seguro que quieres continuar?';
   if (confirm(aviso)){
     ntcGuardarHistorial(ntcUltimasFirmas);
+  }
+});
+
+function ntcNombreArchivo(centro, anio){
+  return 'C-' + centro + ' Planificación Anual Oferta ' + anio + ' - NTC.pdf';
+}
+
+document.getElementById('btn-pdf-todas').addEventListener('click', async function(){
+  if (!ntcUltimasFirmas) {
+    alert('Todavía no hay calendarios calculados (espera a que cargue el informe y los coeficientes).');
+    return;
+  }
+  var lista = window.NTC_getListaTiendas ? window.NTC_getListaTiendas() : [];
+  if (!lista.length) {
+    alert('No hay tiendas en la lista para exportar.');
+    return;
+  }
+  if (!confirm('Se van a generar ' + lista.length + ' PDF (uno por tienda). Puede tardar varios minutos y el navegador podría preguntar si permites varias descargas seguidas. ¿Continuar?')) return;
+
+  var nota = document.getElementById('btn-pdf-todas-nota');
+  var boton = this;
+  boton.disabled = true;
+
+  // Forzamos visible el panel de calendarios mientras se generan las capturas
+  // (si estuviera oculto, html2canvas no podría capturar nada con tamaño 0).
+  var pestanaActiva = document.getElementById('tab-btn-cal').classList.contains('active');
+  var panelCal = document.getElementById('panel-cal');
+  var displayPrevio = panelCal.style.display;
+  panelCal.style.display = '';
+  panelCal.style.position = 'fixed';
+  panelCal.style.left = '-99999px'; // fuera de pantalla, pero renderizable
+
+  try {
+    for (var i = 0; i < lista.length; i++) {
+      var t = lista[i];
+      nota.textContent = 'Generando ' + (i + 1) + ' / ' + lista.length + ' (' + t.centro + ')…';
+      var anio = window.NTC_pintarTienda(t.centro);
+      await new Promise(r => setTimeout(r, 60)); // deja que el DOM termine de pintar
+
+      var paginas = document.querySelectorAll('#doc .page');
+      if (!paginas.length) continue;
+
+      var pdf = null;
+      for (var p = 0; p < paginas.length; p++) {
+        var canvas = await html2canvas(paginas[p], { scale: 2, backgroundColor: '#ffffff' });
+        var img = canvas.toDataURL('image/jpeg', 0.92);
+        var w = canvas.width, h = canvas.height;
+        if (!pdf) {
+          pdf = new jspdf.jsPDF({ unit: 'px', format: [w, h], orientation: w > h ? 'landscape' : 'portrait' });
+          pdf.addImage(img, 'JPEG', 0, 0, w, h);
+        } else {
+          pdf.addPage([w, h], w > h ? 'landscape' : 'portrait');
+          pdf.addImage(img, 'JPEG', 0, 0, w, h);
+        }
+      }
+      if (pdf) pdf.save(ntcNombreArchivo(t.centro, anio || new Date().getFullYear()));
+      await new Promise(r => setTimeout(r, 250)); // margen entre descargas
+    }
+    nota.textContent = 'Listo: ' + lista.length + ' PDF generados.';
+  } catch (e) {
+    nota.textContent = 'Error generando PDFs: ' + e.message;
+  } finally {
+    panelCal.style.position = '';
+    panelCal.style.left = '';
+    panelCal.style.display = pestanaActiva ? '' : displayPrevio;
+    boton.disabled = false;
   }
 });
 </script>
