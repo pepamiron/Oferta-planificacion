@@ -1696,13 +1696,14 @@ function etiqueta(c){
 
 function rellenarLista(filtro){
   var sel = $('sel');
-  var f = normCol(filtro || '');
+  var terminos = (filtro || '').split(',').map(function(t){ return normCol(t); }).filter(Boolean);
   var solo = $('soloMod').checked;
   var vis = LISTA.filter(function(c){
     if (solo && !MODIFICADAS[c]) return false;
-    if (!f) return true;
+    if (!terminos.length) return true;
     var m = META[c] || {};
-    return normCol(c + ' ' + (m.denominacion||'') + ' ' + (m.poblacion||'') + ' ' + (m.provincia||'')).indexOf(f) >= 0;
+    var texto = normCol(c + ' ' + (m.denominacion||'') + ' ' + (m.poblacion||'') + ' ' + (m.provincia||''));
+    return terminos.some(function(t){ return texto.indexOf(t) >= 0; });
   });
   sel.innerHTML = '';
   vis.forEach(function(c){
@@ -1716,7 +1717,7 @@ function rellenarLista(filtro){
     sel.appendChild(o);
   }
   var nMod = Object.keys(MODIFICADAS).length;
-  $('estado').textContent = (f || solo
+  $('estado').textContent = (terminos.length || solo
     ? vis.length + ' de ' + LISTA.length + ' tiendas'
     : LISTA.length + ' tiendas')
     + (nMod ? '  ·  ' + nMod + ' con cambios' : '');
@@ -2171,33 +2172,42 @@ document.getElementById('btn-pdf-todas').addEventListener('click', async functio
   panelCal.style.position = 'fixed';
   panelCal.style.left = '-99999px'; // fuera de pantalla, pero renderizable
 
+  var fallidas = [];
   try {
     for (var i = 0; i < lista.length; i++) {
       var t = lista[i];
       nota.textContent = 'Generando ' + (i + 1) + ' / ' + lista.length + ' (' + t.centro + ')…';
-      var anio = window.NTC_pintarTienda(t.centro);
-      await new Promise(r => setTimeout(r, 60)); // deja que el DOM termine de pintar
+      try {
+        var anio = window.NTC_pintarTienda(t.centro);
+        await new Promise(r => setTimeout(r, 60)); // deja que el DOM termine de pintar
 
-      var paginas = document.querySelectorAll('#doc .page');
-      if (!paginas.length) continue;
+        var paginas = document.querySelectorAll('#doc .page');
+        if (!paginas.length) { fallidas.push(t.centro + ' (sin páginas)'); continue; }
 
-      var pdf = null;
-      for (var p = 0; p < paginas.length; p++) {
-        var canvas = await html2canvas(paginas[p], { scale: 2, backgroundColor: '#ffffff' });
-        var img = canvas.toDataURL('image/jpeg', 0.92);
-        var w = canvas.width, h = canvas.height;
-        if (!pdf) {
-          pdf = new jspdf.jsPDF({ unit: 'px', format: [w, h], orientation: w > h ? 'landscape' : 'portrait' });
-          pdf.addImage(img, 'JPEG', 0, 0, w, h);
-        } else {
-          pdf.addPage([w, h], w > h ? 'landscape' : 'portrait');
-          pdf.addImage(img, 'JPEG', 0, 0, w, h);
+        var pdf = null;
+        var ESCALA_CAPTURA = 2; // más resolución en la imagen, pero la página no debe medir esto
+        for (var p = 0; p < paginas.length; p++) {
+          var canvas = await html2canvas(paginas[p], { scale: ESCALA_CAPTURA, backgroundColor: '#ffffff' });
+          var img = canvas.toDataURL('image/jpeg', 0.92);
+          var w = canvas.width / ESCALA_CAPTURA, h = canvas.height / ESCALA_CAPTURA; // tamaño real de página
+          if (!pdf) {
+            pdf = new jspdf.jsPDF({ unit: 'px', format: [w, h], orientation: w > h ? 'landscape' : 'portrait' });
+            pdf.addImage(img, 'JPEG', 0, 0, w, h);
+          } else {
+            pdf.addPage([w, h], w > h ? 'landscape' : 'portrait');
+            pdf.addImage(img, 'JPEG', 0, 0, w, h);
+          }
         }
+        if (pdf) pdf.save(ntcNombreArchivo(t.centro, anio || new Date().getFullYear()));
+        await new Promise(r => setTimeout(r, 350)); // margen entre descargas
+      } catch (errTienda) {
+        console.warn('[NTC] Fallo generando PDF de', t.centro, ':', errTienda.message);
+        fallidas.push(t.centro + ' (' + errTienda.message + ')');
       }
-      if (pdf) pdf.save(ntcNombreArchivo(t.centro, anio || new Date().getFullYear()));
-      await new Promise(r => setTimeout(r, 250)); // margen entre descargas
     }
-    nota.textContent = 'Listo: ' + lista.length + ' PDF generados.';
+    nota.textContent = fallidas.length
+      ? 'Hecho: ' + (lista.length - fallidas.length) + ' de ' + lista.length + ' OK. Fallaron: ' + fallidas.join(', ')
+      : 'Listo: ' + lista.length + ' PDF generados.';
   } catch (e) {
     nota.textContent = 'Error generando PDFs: ' + e.message;
   } finally {
