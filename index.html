@@ -391,10 +391,7 @@
       <span class="toggle-link" id="toggle-coef">ver</span>
     </h2>
     <div class="coef-storage-note" id="coef-storage-note">Cargando coeficientes…</div>
-    <div class="coef-storage-note" id="coef-sync-note" style="margin-top:-8px;"></div>
-    <div class="toolbar" style="margin:6px 0 12px;">
-      <button class="secondary small" id="btn-sync-coef">🔄 Actualizar desde Sheets</button>
-    </div>
+    <div class="coef-storage-note" id="coef-sync-note" style="margin-top:-8px;margin-bottom:12px;"></div>
     <div class="coef-panel" id="coef-panel">
       <div class="hint" style="margin-bottom:8px;">Solo lectura — estos coeficientes los gestiona su propietario en el Sheets. Si necesitas un cambio (añadir/quitar tienda o ajustar un valor), pídeselo a quien lo mantiene.</div>
       <div class="coef-table-wrap">
@@ -417,13 +414,9 @@
     <div class="coef-storage-note" id="informe-sync-note"></div>
     <div class="dropzone" id="dz-informe">
       <div class="label">Export de Metabase (informe base)</div>
-      <div class="hint">Se carga automáticamente desde el Sheets compartido. Solo hace falta subir un CSV a mano si quieres forzar una versión distinta.<br>CSV con columnas: Region, Centro, Fecha, Dia Semana, Mes, Oferta_NTC_TM, Oferta_NTC_TT, Vehiculos_TM, Vehiculos_TT<br>Para actualizar el informe: 1) ejecutar la query en <a href="https://metabase.prod.monline/question/34531-oferta-diaria" target="_blank" rel="noopener">Oferta diaria · Metabase</a> y 2) pegar el resultado en la pestaña <a href="https://docs.google.com/spreadsheets/d/16-h2Cs0L7eOu5WBPS02-dVW42-O_6YQVBNMa9_0rh5A/edit?gid=339672451#gid=339672451" target="_blank" rel="noopener">"Oferta Negocio" del Sheets</a>.</div>
+      <div class="hint">Se descarga solo desde el Sheets cada vez que abres la página; si has cambiado algo allí, recarga con F5. Cargar un CSV a mano solo hace falta para probar un export antes de pegarlo en el Sheets.<br>CSV con columnas: Region, Centro, Fecha, Dia Semana, Mes, Oferta_NTC_TM, Oferta_NTC_TT, Vehiculos_TM, Vehiculos_TT<br>Para actualizar el informe: 1) ejecutar la query en <a href="https://metabase.prod.monline/question/34531-oferta-diaria" target="_blank" rel="noopener">Oferta diaria · Metabase</a> y 2) pegar el resultado en la pestaña <a href="https://docs.google.com/spreadsheets/d/16-h2Cs0L7eOu5WBPS02-dVW42-O_6YQVBNMa9_0rh5A/edit?gid=339672451#gid=339672451" target="_blank" rel="noopener">"Oferta Negocio" del Sheets</a>.</div>
       <input type="file" id="file-informe" accept=".csv">
       <div class="status" id="status-informe"></div>
-      <div class="toolbar" style="margin:8px 0 0;">
-        <button class="secondary small" id="btn-sync-informe">🔄 Actualizar desde Sheets</button>
-        <button class="secondary small" id="btn-clear-informe">Borrar informe guardado</button>
-      </div>
     </div>
   </div>
 
@@ -512,7 +505,7 @@
 <h3>Los coeficientes</h3>
 <p>Vienen de la pestaña <b>BBDD Col/Ped</b> del Sheet y hay <b>uno por tienda</b>, con su valor para cada mes. La provincia que aparece al lado es solo informativa: el cruce se hace por código de centro.</p>
 <p>Desde aquí <b>no se pueden editar</b>, solo consultar. Para cambiar un coeficiente hay que hacerlo en el Sheet.</p>
-<div class="nota"><b>Si cambias algo en el Sheet</b> con la página ya abierta, no se entera: recarga con <code>F5</code> y volverá a bajar los datos y a recalcular.</div>
+<div class="nota"><b>Si cambias algo en el Sheet</b> con la página ya abierta, no se entera: recarga con <code>F5</code> y volverá a bajar los datos y a recalcular. No hay botón de actualizar porque hace exactamente lo mismo.</div>
 
 <h3>Las filas en ámbar</h3>
 <p>Son tiendas que no tienen coeficiente para ese mes, así que salen sin calcular. Se corrigen añadiendo o completando esa tienda en <b>BBDD Col/Ped</b> y recargando la página.</p>
@@ -528,6 +521,7 @@
 <h3>Guardar o imprimir</h3>
 <p><b>Guardar en PDF / Imprimir</b> saca la tienda que tengas en pantalla. Para varias tiendas de golpe, usa <b>PDF por tienda</b> en la cabecera.</p>
 <div class="ok"><b>Al imprimir</b>, deja los márgenes en <i>Ninguno</i> y activa los gráficos de fondo. La página ya está dimensionada para A4 apaisado.</div>
+<p>Para traer cambios que se hayan hecho en el Sheet mientras tenías la página abierta, recarga con <code>F5</code>.</p>
 </section>
 
 <section data-panel="cambios">
@@ -629,8 +623,6 @@
 Cambios del
 <select id="filtroFecha" style="max-width:200px;"></select>
   </label>
-<button class="ghost" id="btnActualizar">Actualizar datos</button>
-<button class="ghost" id="btnOtro">Cargar otros ficheros</button>
 <span id="fuenteDatos" style="font:600 11px 'Barlow',sans-serif;"></span>
 <span id="estado"></span>
 </div>
@@ -826,8 +818,8 @@ document.getElementById('toggle-coef').addEventListener('click', (e) => {
   e.target.textContent = panel.classList.contains('open') ? 'ocultar' : 'ver';
 });
 
-document.getElementById('btn-sync-coef').addEventListener('click', () => fetchCoefFromSheet(true));
-
+// Los coeficientes se descargan solos al abrir; para ver un cambio del Sheets,
+// basta recargar la pagina (F5). No hay boton de actualizar.
 const INFORME_STORAGE_KEY = 'ntc_informe_csv_v1';
 // Pestaña "Oferta Negocio" del Sheets, publicada en la web como CSV.
 const INFORME_SHEET_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQpfV_priRpFanTSYLZR1_OHxAVl9lzrd01WluyvCuXmRRF8_KsBB9pIdPyYsb_Hg6FVQXMaHuiGEKe/pub?gid=339672451&single=true&output=csv';
@@ -944,17 +936,8 @@ function procesarInformeCSV(rawText) {
   fetchInformeFromSheet(false);
 })();
 
-document.getElementById('btn-sync-informe').addEventListener('click', () => fetchInformeFromSheet(true));
-
-document.getElementById('btn-clear-informe').addEventListener('click', () => {
-  if (!confirm('¿Borrar el informe guardado en este navegador?')) return;
-  clearInformeLocalStorage();
-  informeRows = null;
-  merged = [];
-  document.getElementById('dz-informe').classList.remove('filled');
-  setStatus('status-informe', 'Informe guardado borrado. Sube un CSV para continuar.', false);
-  render();
-});
+// El informe tambien se descarga solo al abrir. Se conserva clearInformeLocalStorage
+// por si hace falta desde consola, pero ya no hay botones de actualizar ni borrar.
 
 document.getElementById('file-informe').addEventListener('change', function (e) {
   const f = e.target.files[0];
@@ -2188,45 +2171,8 @@ function autoInit(){
   });
 }
 
-/* --- Botón "Actualizar datos": vuelve a leer el Sheet sin recargar la
-   página, manteniendo la tienda que se estuviera consultando. --- */
-$('btnActualizar').addEventListener('click', function(){
-  var actual = $('sel').value;
-  $('estado').textContent = 'Actualizando…';
-  Promise.all([
-    fetchTexto(URLS.oferta).catch(function(){ return null; }),
-    fetchTexto(URLS.maestro).catch(function(){ return null; }),
-    fetchTexto(URLS.mods).catch(function(){ return null; })
-  ]).then(function(res){
-    var ofertaTxt = res[0], maestroTxt = res[1], modsTxt = res[2];
-    if (ofertaTxt){
-      try { DATOS = parseOferta(ofertaTxt); guardarEnCache(CACHE.oferta, ofertaTxt); }
-      catch (ex){ $('estado').textContent = 'Error al actualizar: ' + ex.message; return; }
-    } else {
-      $('estado').textContent = 'No se ha podido conectar con Google Sheets.';
-      return;
-    }
-    if (maestroTxt){
-      try { META = parseMaestro(maestroTxt).meta; guardarEnCache(CACHE.maestro, maestroTxt); } catch (ex){}
-    }
-    MODS = null;
-    if (modsTxt){
-      try { MODS = parseOferta(modsTxt); guardarEnCache(CACHE.mods, modsTxt); } catch (ex){}
-    }
-    dbSet(CACHE.fecha, new Date().toISOString());
-    setFuente('sheets', new Date());
-
-    aplicarMods();
-    LISTA = Object.keys(DATOS.stores).sort(function(a,b){
-      return a.localeCompare(b, 'es', { numeric: true });
-    });
-    $('lblSoloMod').style.display = Object.keys(MODIFICADAS).length ? 'flex' : 'none';
-    rellenarFiltroFechas();
-    rellenarLista($('buscar').value);
-    if (actual && DATOS.stores[actual]) $('sel').value = actual;
-    pintar();
-  });
-});
+/* Los datos se descargan solos al abrir la pagina. Para traer cambios del
+   Sheet, recargar con F5: no hay boton de actualizar ni de cargar ficheros. */
 
 $('sel').addEventListener('change', function(){ pintar(); });
 $('soloMod').addEventListener('change', function(){
@@ -2261,14 +2207,6 @@ $('btnImp').addEventListener('click', function(){
 
   window.print();
   setTimeout(function(){ document.title = previo; }, 1500);
-});
-$('btnOtro').addEventListener('click', function(){
-  $('doc').innerHTML = '';
-  $('bar').style.display = 'none';
-  $('inicio').style.display = 'block';
-  $('cargando').style.display = 'none';
-  $('manual').style.display = 'block';
-  cargarDesdeCache();
 });
 
 // Atajos: flechas para cambiar de tienda
