@@ -1856,7 +1856,9 @@ function pintar(centroOpcional){
   // El centro puede venir dado (exportacion de PDF por lotes) o del desplegable.
   // No depender del desplegable evita que una tienda filtrada fuera de la lista
   // se quede sin pintar en silencio.
-  var c = centroOpcional || $('sel').value;
+  // Solo se acepta un codigo de tienda; si llega otra cosa (p. ej. el objeto
+  // Event de un listener) se ignora y se usa el desplegable.
+  var c = (typeof centroOpcional === 'string' && centroOpcional) || $('sel').value;
   if (!c || !DATOS.stores[c]) return;
   var s = DATOS.stores[c];
   var m = META[c] || {};
@@ -1993,7 +1995,7 @@ $('btnActualizar').addEventListener('click', function(){
   });
 });
 
-$('sel').addEventListener('change', pintar);
+$('sel').addEventListener('change', function(){ pintar(); });
 $('soloMod').addEventListener('change', function(){
   var vis = rellenarLista($('buscar').value);
   if (vis.length) pintar();
