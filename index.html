@@ -2046,7 +2046,33 @@ function rellenarLista(filtro){
     ? vis.length + ' de ' + LISTA.length + ' tiendas'
     : LISTA.length + ' tiendas')
     + (nMod ? '  ·  ' + nMod + ' con cambios' : '');
+
+  // Sin resultados: se vacia el calendario y se explica por que. Antes se
+  // quedaba en pantalla el de la tienda anterior, que se confundia con esta.
+  if (!vis.length) mostrarSinResultados(filtro || '');
   return vis;
+}
+
+function mostrarSinResultados(filtro){
+  var doc = $('doc');
+  if (!doc) return;
+  doc.dataset.centro = '';
+  var buscado = String(filtro).trim();
+  doc.innerHTML =
+    '<div style="background:#fff;border:1px solid var(--line);border-radius:12px;' +
+    'box-shadow:var(--shadow);padding:52px 40px;max-width:620px;text-align:center;">' +
+      '<div style="font:700 9.5px \'Archivo\',sans-serif;letter-spacing:1.3px;' +
+      'text-transform:uppercase;color:var(--ink-3);margin-bottom:10px;">Sin resultados</div>' +
+      '<div style="font:700 19px \'Archivo\',sans-serif;color:var(--ink);margin-bottom:12px;">' +
+        (buscado ? 'No hay datos para “' + buscado.replace(/</g,'&lt;') + '”'
+                 : 'Ninguna tienda coincide con los filtros') +
+      '</div>' +
+      '<div style="font-size:13.5px;line-height:1.65;color:var(--ink-3);max-width:52ch;margin:0 auto;">' +
+        'Puede que el centro no exista en la oferta cargada, que no tenga oferta en ' +
+        'ningún día del año, o que los filtros activos lo estén dejando fuera. ' +
+        'Revisa el código o borra el buscador para ver todas las tiendas.' +
+      '</div>' +
+    '</div>';
 }
 
 function pintar(centroOpcional){
