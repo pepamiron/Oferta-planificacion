@@ -1984,7 +1984,12 @@ function rellenarFiltroFechas(){
   if (!sel || !lbl) return;
 
   if (!filtroFechaListo){
-    sel.addEventListener('change', function(){ rellenarLista($('buscar').value); });
+    sel.addEventListener('change', function(){
+      // Repintar tras filtrar: al rehacer la lista cambia la tienda seleccionada,
+      // y sin esto el calendario se quedaba en la anterior.
+      var vis = rellenarLista($('buscar').value);
+      if (vis.length) pintar();
+    });
     filtroFechaListo = true;
   }
 
