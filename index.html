@@ -269,11 +269,85 @@
   #verManual { font: 600 12px 'Archivo', sans-serif; color: var(--accent-dk); text-decoration: none; }
   #verManual:hover { text-decoration: underline; }
 
+  /* ---------- Guía de uso ---------- */
+  #guia-fondo{
+    position:fixed; inset:0; z-index:9000; background:rgba(19,32,25,.55);
+    display:none; align-items:center; justify-content:center; padding:24px;
+  }
+  #guia-fondo.abierta{ display:flex; }
+  #guia{
+    background:#fff; border-radius:14px; width:min(860px,100%); max-height:88vh;
+    display:flex; flex-direction:column; overflow:hidden;
+    box-shadow:0 30px 70px -30px rgba(19,32,25,.7);
+  }
+  #guia header{
+    display:flex; align-items:flex-start; gap:16px; justify-content:space-between;
+    padding:20px 24px 16px; border-bottom:1px solid var(--line);
+  }
+  #guia header .eyebrow{
+    font:700 9.5px 'Archivo',sans-serif; letter-spacing:1.3px;
+    text-transform:uppercase; color:var(--accent-dk); margin-bottom:5px;
+  }
+  #guia header h2{ font:700 20px 'Archivo',sans-serif; margin:0; letter-spacing:-.2px; }
+  #guia header p{ font-size:13px; color:var(--ink-3); margin:6px 0 0; line-height:1.55; max-width:62ch; }
+  #guia .cerrar{
+    border:1px solid var(--line); background:#fff; border-radius:8px; cursor:pointer;
+    font:700 12px 'Archivo',sans-serif; color:var(--ink-2); padding:7px 12px; flex:0 0 auto;
+  }
+  #guia .cerrar:hover{ background:#F4F8F5; border-color:#C9E3D4; }
+  #guia .cuerpo{ overflow:auto; padding:6px 24px 22px; }
+  #guia .guia-nav{
+    display:flex; gap:4px; padding:12px 0 16px; flex-wrap:wrap;
+    position:sticky; top:0; background:#fff; z-index:2;
+  }
+  #guia .guia-nav button{
+    border:1px solid var(--line); background:#fff; border-radius:20px; cursor:pointer;
+    font:600 11.5px 'Archivo',sans-serif; color:var(--ink-2); padding:6px 13px;
+  }
+  #guia .guia-nav button:hover{ background:#F4F8F5; }
+  #guia .guia-nav button.on{ background:var(--ink); border-color:var(--ink); color:#fff; }
+  #guia section{ display:none; }
+  #guia section.on{ display:block; }
+  #guia h3{
+    font:700 13px 'Archivo',sans-serif; margin:20px 0 8px; letter-spacing:.2px;
+  }
+  #guia h3:first-child{ margin-top:4px; }
+  #guia p, #guia li{ font-size:13.5px; line-height:1.65; color:var(--ink-2); }
+  #guia p{ margin:0 0 10px; max-width:72ch; }
+  #guia ol, #guia ul{ margin:0 0 12px; padding-left:20px; display:grid; gap:7px; }
+  #guia b{ color:var(--ink); }
+  #guia code{
+    font-family:ui-monospace,Menlo,Consolas,monospace; font-size:12px;
+    background:#F1F5F2; border:1px solid var(--line); border-radius:5px; padding:1px 5px; color:var(--ink);
+  }
+  #guia .nota{
+    border:1px solid #E6D5BC; background:var(--warn-soft); border-radius:10px;
+    padding:12px 14px; margin:12px 0; font-size:13px; line-height:1.6; color:#6B3C12;
+  }
+  #guia .nota b{ color:#5A3210; }
+  #guia .ok{
+    border:1px solid #BFE2CD; background:var(--accent-soft); border-radius:10px;
+    padding:12px 14px; margin:12px 0; font-size:13px; line-height:1.6; color:#1D5C3A;
+  }
+  #guia .ok b{ color:#154429; }
+  #guia footer{
+    border-top:1px solid var(--line); padding:14px 24px; display:flex;
+    align-items:center; justify-content:space-between; gap:14px; flex-wrap:wrap;
+    background:#FAFCFA;
+  }
+  #guia footer .hint{ font-size:12px; color:var(--ink-3); }
+  #guia footer button{
+    border:0; background:var(--accent); color:#fff; border-radius:8px; cursor:pointer;
+    font:700 12.5px 'Archivo',sans-serif; padding:10px 18px;
+  }
+  #guia footer button:hover{ background:var(--accent-dk); }
+
   /* ---------- Impresion ---------- */
   * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
   @media print {
     html, body { background: #fff !important; }
     #bar, #inicio { display: none !important; }
+    #guia-fondo { display:none !important; }
     .ntc-tabs { display: none !important; }
     #panel-cal { padding: 0 !important; margin: 0 !important; }
     #doc { display: block !important; padding: 0 !important; margin: 0 !important;
@@ -299,6 +373,7 @@
     <span id="btn-pdf-todas-nota"></span>
   </div>
   <div class="acciones">
+    <button id="btn-ayuda" title="Cómo funciona esta herramienta">¿Cómo funciona?</button>
     <button id="btn-pdf-todas">PDF por tienda</button>
     <button id="btn-ver-calendarios" class="primary">Calcular oferta</button>
   </div>
@@ -390,6 +465,112 @@
   </div>
 </div>
 
+</div>
+
+<div id="guia-fondo">
+<div id="guia" role="dialog" aria-modal="true" aria-label="Cómo funciona">
+<header>
+<div>
+<div class="eyebrow">Guía de uso</div>
+<h2>Cómo funciona esta herramienta</h2>
+<p>Sirve para calcular la oferta NTC aplicando coeficientes por provincia y para consultar o imprimir el calendario anual de cada tienda. Todo se procesa en tu navegador: los datos no se envían a ningún sitio.</p>
+</div>
+<button class="cerrar" id="guia-cerrar" type="button">Cerrar</button>
+</header>
+<div class="cuerpo">
+<div class="guia-nav">
+<button class="on" data-guia="empezar" type="button">Empezar</button>
+<button data-guia="oferta" type="button">Oferta y coeficientes</button>
+<button data-guia="calendarios" type="button">Calendarios</button>
+<button data-guia="cambios" type="button">Modificadas y fechas</button>
+<button data-guia="pdf" type="button">PDF por tienda</button>
+<button data-guia="problemas" type="button">Si algo falla</button>
+</div>
+
+<section class="on" data-panel="empezar">
+<h3>Qué hace</h3>
+<p>Son dos herramientas en una, cada una en su pestaña:</p>
+<ul>
+<li><b>Oferta y coeficientes</b> — parte del informe de oferta, le aplica los coeficientes de cada provincia y te devuelve la tabla calculada, que puedes exportar.</li>
+<li><b>Calendarios por tienda</b> — con la oferta ya calculada, pinta el calendario anual de cualquier tienda y lo guarda en PDF.</li>
+</ul>
+
+<h3>Lo que necesitas</h3>
+<ol>
+<li>El <b>informe de oferta</b> en CSV. Normalmente se carga solo desde Google Sheets al abrir; si no, lo cargas a mano.</li>
+<li>Los <b>coeficientes</b> por provincia. Se guardan en tu navegador, así que solo los cargas la primera vez.</li>
+<li>El <b>maestro de tiendas</b> (opcional): añade denominación y población a la cabecera del calendario.</li>
+</ol>
+<div class="ok"><b>Si es tu primera vez:</b> abre la pestaña <i>Oferta y coeficientes</i>, espera a que cargue el informe, comprueba que no hay filas sin coeficiente y pulsa <i>Calcular oferta</i>. Con eso ya puedes pasar a los calendarios.</div>
+</section>
+
+<section data-panel="oferta">
+<h3>1. Cargar el informe</h3>
+<p>Al abrir la herramienta se descarga solo desde Google Sheets. Si falla o prefieres una versión concreta, puedes soltar el CSV en la zona de carga.</p>
+
+<h3>2. Revisar los coeficientes</h3>
+<p>Se despliegan con el enlace de la cabecera del panel. Son editables: al tocar una celda se guarda sola en este navegador, sin botón de guardar. Cada fila es una provincia con su valor por mes.</p>
+<div class="nota"><b>Ojo con las filas en ámbar.</b> Marcan tiendas cuya provincia no tiene coeficiente: esas líneas salen sin calcular. Añade la provincia que falte en la tabla de coeficientes y vuelve a calcular.</div>
+
+<h3>3. Calcular y exportar</h3>
+<p>El botón <b>Calcular oferta</b> de la cabecera aplica los coeficientes. Sobre la tabla puedes buscar por centro o provincia, ordenar pulsando en cualquier cabecera de columna, y exportar el resultado.</p>
+</section>
+
+<section data-panel="calendarios">
+<h3>Ver una tienda</h3>
+<p>En la pestaña <b>Calendarios por tienda</b>, escribe el centro o la población en el buscador y elige la tienda en el desplegable. El calendario anual se pinta al instante, ya maquetado en A4 apaisado tal como saldrá impreso.</p>
+
+<h3>Guardar o imprimir</h3>
+<p><b>Guardar en PDF / Imprimir</b> saca la tienda que tengas en pantalla. Para varias tiendas de golpe, usa <b>PDF por tienda</b> en la cabecera.</p>
+<div class="ok"><b>Al imprimir</b>, deja los márgenes en <i>Ninguno</i> y activa los gráficos de fondo. La página ya está dimensionada para A4 apaisado.</div>
+</section>
+
+<section data-panel="cambios">
+<h3>Qué significa MODIFICADA</h3>
+<p>Que esa tienda <b>ya no coincide con la oferta original</b> que se fijó como referencia. <b>NUEVA</b> es una tienda que no existía cuando se fijó. Si no aparece ninguna marca, la tienda sigue igual que el día de la referencia.</p>
+
+<h3>La fecha que acompaña a la marca</h3>
+<p>Es el día en que los datos de esa tienda cambiaron en el Sheet. La calcula un proceso del propio Sheet, no esta página, y sirve para distinguir unas rondas de modificaciones de otras a lo largo del año.</p>
+<p>El desplegable <b>Cambios del</b> filtra por esas fechas: solo lista las que existen de verdad, con el número de tiendas de cada una. La casilla <b>Solo modificadas</b> deja a la vista únicamente las que tienen marca.</p>
+
+<h3>Fijar la oferta original</h3>
+<p>El botón de guardar la referencia congela la oferta actual como punto de partida del año. A partir de ahí, todo lo que cambie se marca contra ella.</p>
+<div class="nota"><b>Es un botón delicado.</b> Al guardar referencia se borran todas las marcas y fechas actuales y se empieza de cero, para todo el equipo a la vez. Se usa una vez al publicar la oferta del año, no cada vez que se actualizan datos.</div>
+</section>
+
+<section data-panel="pdf">
+<h3>Varias tiendas de una vez</h3>
+<ol>
+<li>Pulsa <b>PDF por tienda</b> en la cabecera.</li>
+<li>Marca las tiendas que quieras. Puedes buscar, usar <i>Marcar todas</i>, o seleccionar de golpe las de una fecha de modificación concreta con el desplegable de fechas.</li>
+<li>Confirma y espera sin cambiar de pestaña ni cerrar la ventana: la pantalla se cubre y va indicando por cuál va.</li>
+</ol>
+<p>Se genera un PDF por tienda, nombrado con su centro y su año. Si alguna no se puede generar, se salta y aparece listada al final con el motivo, en lugar de guardar un calendario equivocado.</p>
+<div class="nota"><b>La primera vez con varias tiendas</b>, el navegador pregunta si permites descargar varios archivos. Acepta, o solo se guardará el primero.</div>
+</section>
+
+<section data-panel="problemas">
+<h3>No carga nada y sale un error de conexión</h3>
+<p>Casi siempre es porque el archivo se ha abierto con doble clic desde el disco. Google no acepta esas peticiones. Ábrelo por su <b>enlace web</b> y funcionará.</p>
+
+<h3>Hay tiendas sin calcular, en ámbar</h3>
+<p>Falta el coeficiente de su provincia. Añádelo en la tabla de coeficientes y vuelve a calcular.</p>
+
+<h3>Los acentos salen mal</h3>
+<p>El CSV no está en UTF-8. Vuelve a guardarlo desde Excel como <code>CSV UTF-8 (delimitado por comas)</code>.</p>
+
+<h3>Faltan denominación y población</h3>
+<p>No se ha cargado el maestro de tiendas. Es opcional, pero sin él esos datos salen con un guión.</p>
+
+<h3>Las fechas de cambio no aparecen</h3>
+<p>No se ha podido leer la hoja de fechas. Todo lo demás sigue funcionando: las marcas se ven igual, solo que sin fecha.</p>
+</section>
+</div>
+<footer>
+<span class="hint">Puedes volver a abrir esta guía cuando quieras desde <b>¿Cómo funciona?</b>, arriba a la derecha.</span>
+<button id="guia-ok" type="button">Entendido</button>
+</footer>
+</div>
 </div>
 
 <div id="panel-cal" style="display:none;">
@@ -1363,6 +1544,7 @@ function parseOferta(text){
   }
 
   // Año mayoritario de cada tienda
+  var sinOferta = [];
   Object.keys(stores).forEach(function(c){
     var s = stores[c];
     var a = Object.keys(s.anios).map(Number)
@@ -1371,12 +1553,25 @@ function parseOferta(text){
     s.anio = a.length ? a[0] : new Date().getFullYear();
     s.variosAnios = a.length > 1;
     delete s.anios;
+
+    // Tiendas que vienen con todo a cero en el informe: no tienen oferta en
+    // ningun dia del ano, asi que su calendario saldria vacio. Se descartan.
+    var tieneAlgo = s.months.some(function(mes){
+      return Object.keys(mes.days).some(function(d){
+        var v = mes.days[d];
+        return v.m.p || v.m.v || v.m.c || v.t.p || v.t.v || v.t.c;
+      });
+    });
+    if (!tieneAlgo){
+      sinOferta.push(c);
+      delete stores[c];
+    }
   });
 
   if (!Object.keys(stores).length){
     throw new Error('No se ha encontrado ninguna tienda con fechas válidas en el fichero.');
   }
-  return { stores: stores, filasOk: filasOk, filasMal: filasMal };
+  return { stores: stores, filasOk: filasOk, filasMal: filasMal, sinOferta: sinOferta };
 }
 
 /* --- Maestro de tiendas: detecta los dos formatos --- */
@@ -1650,7 +1845,9 @@ function cargarOferta(file){
       var anios = {};
       Object.keys(DATOS.stores).forEach(function(c){ anios[DATOS.stores[c].anio] = 1; });
       marcar(z, e, n + ' tiendas · ' + DATOS.filasOk.toLocaleString('es-ES') +
-        ' filas · año ' + Object.keys(anios).sort().join(' y '), false);
+        ' filas · año ' + Object.keys(anios).sort().join(' y ') +
+        ((DATOS.sinOferta && DATOS.sinOferta.length)
+          ? ' · ' + DATOS.sinOferta.length + ' sin oferta (descartadas)' : ''), false);
       guardarEnCache(CACHE.oferta, txt);
       dbSet(CACHE.fecha, new Date().toISOString());
       if ($('borrarCacheWrap')) $('borrarCacheWrap').style.display = 'block';
@@ -2594,6 +2791,45 @@ document.getElementById('btn-pdf-todas').addEventListener('click', function(){
   if (window.ResizeObserver) new ResizeObserver(apply).observe(head);
   window.addEventListener('resize', apply);
 })();
+/* --- Guia de uso: se abre desde la cabecera y, sola, la primera vez --- */
+(function(){
+  var fondo = document.getElementById('guia-fondo');
+  if (!fondo) return;
+  var guia = document.getElementById('guia');
+  var CLAVE = 'ntc_guia_vista_v1';
+
+  function abrir(){
+    fondo.classList.add('abierta');
+    document.body.style.overflow = 'hidden';
+  }
+  function cerrar(){
+    fondo.classList.remove('abierta');
+    document.body.style.overflow = '';
+    try { localStorage.setItem(CLAVE, '1'); } catch (e) {}
+  }
+
+  document.getElementById('btn-ayuda').addEventListener('click', abrir);
+  document.getElementById('guia-cerrar').addEventListener('click', cerrar);
+  document.getElementById('guia-ok').addEventListener('click', cerrar);
+  fondo.addEventListener('click', function(e){ if (e.target === fondo) cerrar(); });
+  document.addEventListener('keydown', function(e){
+    if (e.key === 'Escape' && fondo.classList.contains('abierta')) cerrar();
+  });
+
+  guia.querySelector('.guia-nav').addEventListener('click', function(e){
+    var b = e.target.closest('button[data-guia]');
+    if (!b) return;
+    guia.querySelectorAll('.guia-nav button').forEach(function(x){ x.classList.remove('on'); });
+    b.classList.add('on');
+    guia.querySelectorAll('section[data-panel]').forEach(function(s){
+      s.classList.toggle('on', s.dataset.panel === b.dataset.guia);
+    });
+    guia.querySelector('.cuerpo').scrollTop = 0;
+  });
+
+  // La guia no se abre sola: solo con el boton "¿Cómo funciona?".
+})();
+
 </script>
 </body>
 </html>
