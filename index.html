@@ -1179,6 +1179,9 @@ function renderStore(STORE){
 
   var doc = document.getElementById('doc');
   doc.innerHTML = '';
+  // Sello de control: lo escribe quien pinta de verdad, no quien lo pide.
+  // Asi el exportador de PDF puede fiarse de que el DOM es de esta tienda.
+  doc.dataset.centro = String(STORE.centro || '');
 
   /* ---------- 2 PAGINAS SEMESTRALES (opcionales) ---------- */
   var globals = (cfg.showSemestrales === true) ? [
@@ -1849,8 +1852,11 @@ function rellenarLista(filtro){
   return vis;
 }
 
-function pintar(){
-  var c = $('sel').value;
+function pintar(centroOpcional){
+  // El centro puede venir dado (exportacion de PDF por lotes) o del desplegable.
+  // No depender del desplegable evita que una tienda filtrada fuera de la lista
+  // se quede sin pintar en silencio.
+  var c = centroOpcional || $('sel').value;
   if (!c || !DATOS.stores[c]) return;
   var s = DATOS.stores[c];
   var m = META[c] || {};
@@ -2053,12 +2059,8 @@ window.NTC_pintarTienda = function(centro){
     throw new Error('la tienda ' + centro + ' no está en los datos cargados');
   }
   var sel = document.getElementById('sel');
-  sel.value = centro;
-  pintar();
-  // Sello de control: permite comprobar que lo pintado es de verdad esta tienda
-  // antes de capturarlo en PDF.
-  var doc = document.getElementById('doc');
-  if (doc) doc.dataset.centro = centro;
+  sel.value = centro; // puede no existir como opcion si hay filtros activos: da igual
+  pintar(centro);     // se pinta por centro, no por lo que diga el desplegable
   return DATOS.stores[centro] ? DATOS.stores[centro].anio : null;
 };
 window.NTC_getListaTiendas = function(){
@@ -2354,20 +2356,35 @@ function ntcEsperarPintado(){
 
 async function ntcExportarPDFs(lista, nota, boton){
   boton.disabled = true;
-  // Forzamos visible el panel de calendarios mientras se generan las capturas
-  // (si estuviera oculto, html2canvas no podría capturar nada con tamaño 0).
+
+  // El calendario se renderiza EN SU SITIO, con layout y pintado reales.
+  // Antes se escondia con position:fixed y left:-99999px, y un elemento asi
+  // puede no repintarse: html2canvas acababa copiando la tienda anterior.
+  // Ahora se deja visible y se tapa la pantalla con una capa de progreso.
   var pestanaActiva = document.getElementById('tab-btn-cal').classList.contains('active');
   var panelCal = document.getElementById('panel-cal');
   var displayPrevio = panelCal.style.display;
   panelCal.style.display = '';
-  panelCal.style.position = 'fixed';
-  panelCal.style.left = '-99999px'; // fuera de pantalla, pero renderizable
+
+  var capa = document.createElement('div');
+  capa.style.cssText = 'position:fixed;inset:0;z-index:9999;background:#132019;color:#fff;' +
+    'display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;' +
+    "font:600 15px 'Archivo',sans-serif;text-align:center;padding:24px;";
+  var capaMsg = document.createElement('div');
+  var capaSub = document.createElement('div');
+  capaSub.style.cssText = "font:400 13px 'Barlow',sans-serif;color:#9DB6A6;max-width:46ch;line-height:1.5;";
+  capaSub.textContent = 'No cierres ni cambies de pestaña mientras se generan los PDF.';
+  capa.appendChild(capaMsg);
+  capa.appendChild(capaSub);
+  document.body.appendChild(capa);
 
   var fallidas = [];
   try {
     for (var i = 0; i < lista.length; i++) {
       var t = lista[i];
-      nota.textContent = 'Generando ' + (i + 1) + ' / ' + lista.length + ' (' + t.centro + ')…';
+      var avance = 'Generando ' + (i + 1) + ' / ' + lista.length + ' (' + t.centro + ')…';
+      nota.textContent = avance;
+      capaMsg.textContent = avance;
       try {
         var anio = window.NTC_pintarTienda(t.centro);
         await ntcEsperarPintado();
@@ -2386,7 +2403,18 @@ async function ntcExportarPDFs(lista, nota, boton){
 
         var pdf = null;
         for (var p = 0; p < paginas.length; p++) {
-          var canvas = await html2canvas(paginas[p], { scale: 2, backgroundColor: '#ffffff' });
+          var canvas = await html2canvas(paginas[p], {
+            scale: 2,
+            backgroundColor: '#ffffff',
+            // Ultima red: si entre la comprobacion y la captura el DOM ya no es
+            // de esta tienda, se aborta en vez de guardar el calendario de otra.
+            onclone: function(docClon){
+              var d = docClon.getElementById('doc');
+              if (!d || d.dataset.centro !== String(t.centro)) {
+                throw new Error('el calendario en pantalla no es de esta tienda');
+              }
+            }
+          });
           var img = canvas.toDataURL('image/jpeg', 0.92);
           if (!pdf) {
             pdf = new jspdf.jsPDF({ unit: 'mm', format: 'a4', orientation: 'landscape' });
@@ -2409,8 +2437,7 @@ async function ntcExportarPDFs(lista, nota, boton){
   } catch (e) {
     nota.textContent = 'Error generando PDFs: ' + e.message;
   } finally {
-    panelCal.style.position = '';
-    panelCal.style.left = '';
+    if (capa.parentNode) capa.parentNode.removeChild(capa);
     panelCal.style.display = pestanaActiva ? '' : displayPrevio;
     boton.disabled = false;
   }
