@@ -491,29 +491,34 @@
 <h3>Qué hace</h3>
 <p>Son dos herramientas en una, cada una en su pestaña:</p>
 <ul>
-<li><b>Oferta y coeficientes</b> — parte del informe de oferta, le aplica los coeficientes de cada provincia y te devuelve la tabla calculada, que puedes exportar.</li>
-<li><b>Calendarios por tienda</b> — con la oferta ya calculada, pinta el calendario anual de cualquier tienda y lo guarda en PDF.</li>
+<li><b>Oferta y coeficientes</b> — cruza el informe de oferta con el coeficiente de cada tienda y te devuelve la tabla calculada, que puedes exportar.</li>
+<li><b>Calendarios por tienda</b> — pinta el calendario anual de cualquier tienda y lo guarda en PDF.</li>
 </ul>
 
-<h3>Lo que necesitas</h3>
-<ol>
-<li>El <b>informe de oferta</b> en CSV. Normalmente se carga solo desde Google Sheets al abrir; si no, lo cargas a mano.</li>
-<li>Los <b>coeficientes</b> por provincia. Se guardan en tu navegador, así que solo los cargas la primera vez.</li>
-<li>El <b>maestro de tiendas</b> (opcional): añade denominación y población a la cabecera del calendario.</li>
-</ol>
-<div class="ok"><b>Si es tu primera vez:</b> abre la pestaña <i>Oferta y coeficientes</i>, espera a que cargue el informe, comprueba que no hay filas sin coeficiente y pulsa <i>Calcular oferta</i>. Con eso ya puedes pasar a los calendarios.</div>
+<h3>De dónde salen los datos</h3>
+<p>Todo viene de un mismo Google Sheets y se descarga solo al abrir la página. No hay que cargar nada a mano ni pulsar ningún botón para calcular:</p>
+<ul>
+<li><b>Oferta Negocio</b> — el informe de oferta, con una fila por tienda y día.</li>
+<li><b>BBDD Col/Ped</b> — los coeficientes, <b>uno por tienda</b> y mes.</li>
+<li><b>Maestro de tiendas</b> — denominación, población, provincia y zona para la cabecera del calendario.</li>
+</ul>
+<div class="ok"><b>Si es tu primera vez:</b> no tienes que preparar nada. Abre la página, espera a que termine de sincronizar y ya tienes la tabla calculada y los calendarios listos.</div>
 </section>
 
 <section data-panel="oferta">
-<h3>1. Cargar el informe</h3>
-<p>Al abrir la herramienta se descarga solo desde Google Sheets. Si falla o prefieres una versión concreta, puedes soltar el CSV en la zona de carga.</p>
+<h3>La tabla se calcula sola</h3>
+<p>Al abrir la página se descargan el informe y los coeficientes desde el Sheet, y el cruce se hace automáticamente. No hay ningún botón de calcular.</p>
 
-<h3>2. Revisar los coeficientes</h3>
-<p>Se despliegan con el enlace de la cabecera del panel. Son editables: al tocar una celda se guarda sola en este navegador, sin botón de guardar. Cada fila es una provincia con su valor por mes.</p>
-<div class="nota"><b>Ojo con las filas en ámbar.</b> Marcan tiendas cuya provincia no tiene coeficiente: esas líneas salen sin calcular. Añade la provincia que falte en la tabla de coeficientes y vuelve a calcular.</div>
+<h3>Los coeficientes</h3>
+<p>Vienen de la pestaña <b>BBDD Col/Ped</b> del Sheet y hay <b>uno por tienda</b>, con su valor para cada mes. La provincia que aparece al lado es solo informativa: el cruce se hace por código de centro.</p>
+<p>Desde aquí <b>no se pueden editar</b>, solo consultar. Para cambiar un coeficiente hay que hacerlo en el Sheet.</p>
+<div class="nota"><b>Si cambias algo en el Sheet</b> con la página ya abierta, no se entera: recarga con <code>F5</code> y volverá a bajar los datos y a recalcular.</div>
 
-<h3>3. Calcular y exportar</h3>
-<p>El botón <b>Calcular oferta</b> de la cabecera aplica los coeficientes. Sobre la tabla puedes buscar por centro o provincia, ordenar pulsando en cualquier cabecera de columna, y exportar el resultado.</p>
+<h3>Las filas en ámbar</h3>
+<p>Son tiendas que no tienen coeficiente para ese mes, así que salen sin calcular. Se corrigen añadiendo o completando esa tienda en <b>BBDD Col/Ped</b> y recargando la página.</p>
+
+<h3>Buscar y exportar</h3>
+<p>Sobre la tabla puedes buscar por centro o provincia, ordenar pulsando en cualquier cabecera de columna, y exportar el resultado.</p>
 </section>
 
 <section data-panel="calendarios">
@@ -554,7 +559,7 @@
 <p>Casi siempre es porque el archivo se ha abierto con doble clic desde el disco. Google no acepta esas peticiones. Ábrelo por su <b>enlace web</b> y funcionará.</p>
 
 <h3>Hay tiendas sin calcular, en ámbar</h3>
-<p>Falta el coeficiente de su provincia. Añádelo en la tabla de coeficientes y vuelve a calcular.</p>
+<p>Esa tienda no tiene coeficiente para ese mes. Complétala en la pestaña <b>BBDD Col/Ped</b> del Sheet y recarga la página.</p>
 
 <h3>Los acentos salen mal</h3>
 <p>El CSV no está en UTF-8. Vuelve a guardarlo desde Excel como <code>CSV UTF-8 (delimitado por comas)</code>.</p>
