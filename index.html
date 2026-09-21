@@ -2416,6 +2416,9 @@ async function ntcExportarPDFs(lista, nota, boton){
             }
           });
           var img = canvas.toDataURL('image/jpeg', 0.92);
+          // Liberar la captura en cuanto se ha usado: en tandas largas, decenas
+          // de canvas a doble resolucion llegan a agotar la memoria del navegador.
+          canvas.width = 0; canvas.height = 0; canvas = null;
           if (!pdf) {
             pdf = new jspdf.jsPDF({ unit: 'mm', format: 'a4', orientation: 'landscape' });
           } else {
