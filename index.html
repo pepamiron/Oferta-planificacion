@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<title>PRUEBA · Oferta + Coeficientes + Calendarios</title>
+<title>Oferta NTC · Calendarios por tienda</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/lz-string/1.5.0/lz-string.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -369,13 +369,12 @@
   </div>
   <span class="spacer"></span>
   <div class="notas">
-    <span id="btn-ver-calendarios-nota"></span>
+    <span id="nota-fechas"></span>
     <span id="btn-pdf-todas-nota"></span>
   </div>
   <div class="acciones">
     <button id="btn-ayuda" title="Cómo funciona esta herramienta">¿Cómo funciona?</button>
-    <button id="btn-pdf-todas">PDF por tienda</button>
-    <button id="btn-ver-calendarios" class="primary">Calcular oferta</button>
+    <button id="btn-pdf-todas" class="primary">PDF por tienda</button>
   </div>
 </div>
 
@@ -493,6 +492,7 @@
 <ul>
 <li><b>Oferta Negocio</b> — el informe de oferta, con una fila por tienda y día.</li>
 <li><b>BBDD Col/Ped</b> — los coeficientes, <b>uno por tienda</b> y mes.</li>
+<li><b>Fechas cambio</b> — la calcula el propio Sheet: cuándo cambió por última vez cada tienda.</li>
 <li><b>Maestro de tiendas</b> — denominación, población, provincia y zona para la cabecera del calendario.</li>
 </ul>
 <div class="ok"><b>Si es tu primera vez:</b> no tienes que preparar nada. Abre la página, espera a que termine de sincronizar y ya tienes la tabla calculada y los calendarios listos.</div>
@@ -526,15 +526,16 @@
 
 <section data-panel="cambios">
 <h3>Qué significa MODIFICADA</h3>
-<p>Que esa tienda <b>ya no coincide con la oferta original</b> que se fijó como referencia. <b>NUEVA</b> es una tienda que no existía cuando se fijó. Si no aparece ninguna marca, la tienda sigue igual que el día de la referencia.</p>
+<p>Que los datos de esa tienda <b>han cambiado en el Sheet</b> después de fijarse la oferta original: su oferta diaria, su coeficiente, o las dos. <b>NUEVA</b> es una tienda que no existía entonces. Si no aparece ninguna marca, la tienda sigue igual que el día de partida.</p>
 
 <h3>La fecha que acompaña a la marca</h3>
-<p>Es el día en que los datos de esa tienda cambiaron en el Sheet. La calcula un proceso del propio Sheet, no esta página, y sirve para distinguir unas rondas de modificaciones de otras a lo largo del año.</p>
+<p>Es el día y la hora en que cambió. La calcula un proceso del propio Sheet cada vez que se actualizan los datos, así que no depende de que nadie abra esta página ni de quién la abra: es la misma para todo el equipo.</p>
 <p>El desplegable <b>Cambios del</b> filtra por esas fechas: solo lista las que existen de verdad, con el número de tiendas de cada una. La casilla <b>Solo modificadas</b> deja a la vista únicamente las que tienen marca.</p>
+<div class="ok"><b>Para qué sirve:</b> cuando a mitad de año llevas varias rondas de cambios acumuladas, el filtro te separa las de cada día. En la ventana de <i>PDF por tienda</i> puedes además marcar de golpe todas las de una fecha y sacar solo esos calendarios.</div>
 
-<h3>Fijar la oferta original</h3>
-<p>El botón de guardar la referencia congela la oferta actual como punto de partida del año. A partir de ahí, todo lo que cambie se marca contra ella.</p>
-<div class="nota"><b>Es un botón delicado.</b> Al guardar referencia se borran todas las marcas y fechas actuales y se empieza de cero, para todo el equipo a la vez. Se usa una vez al publicar la oferta del año, no cada vez que se actualizan datos.</div>
+<h3>La oferta original</h3>
+<p>Es la foto de partida del año. Se fija desde el Sheet, con <b>Fechas NTC › Reiniciar fechas</b>: a partir de ese momento todas las tiendas quedan sin marca y solo se marca lo que cambie después.</p>
+<div class="nota">Esta página <b>no puede</b> reiniciar nada ni tocar el Sheet: solo lee. El reinicio se hace una vez al publicar la oferta del año, desde el Sheet, y afecta a lo que ve todo el equipo.</div>
 </section>
 
 <section data-panel="pdf">
@@ -2315,29 +2316,17 @@ async function ntcCargarMaestro(){
   }
 }
 
-var NTC_HIST_BIN_ID = '6aa00fb0ac6210605ab3b3dd';
-var NTC_KEY_STORAGE = 'ntc_historial_jsonbin_masterkey'; // clave PROPIA del histórico, separada de la de coeficientes
-
-function ntcGetMasterKey(forcePrompt){
-  var key = null;
-  try { key = localStorage.getItem(NTC_KEY_STORAGE); } catch (e) {}
-  if (!key || forcePrompt){
-    key = prompt('Introduce tu Master Key de JSONBin (solo se guarda en este navegador, nunca en el archivo):', key || '');
-    if (key) { try { localStorage.setItem(NTC_KEY_STORAGE, key); } catch (e) {} }
-  }
-  if (key) {
-    console.log('[NTC] Usando bin', NTC_HIST_BIN_ID, '— clave', key.slice(0,7) + '…' + key.slice(-4), '(longitud ' + key.length + ')');
-  }
-  return key;
-}
-
-function ntcHash(str){
+function ntcHashNum(str){
   var h = 0x811c9dc5;
   for (var i = 0; i < str.length; i++){
     h ^= str.charCodeAt(i);
     h = (h * 0x01000193) >>> 0;
   }
-  return h.toString(16);
+  return h >>> 0;
+}
+
+function ntcHash(str){
+  return ntcHashNum(str).toString(16);
 }
 
 function ntcFechaOrdenable(f){
@@ -2346,31 +2335,33 @@ function ntcFechaOrdenable(f){
   return p[2] + ('0' + p[1]).slice(-2) + ('0' + p[0]).slice(-2);
 }
 
-function ntcFirmarPorCentro(filas){
-  var porCentro = {};
-  filas.forEach(function(f){
-    (porCentro[f.centro] = porCentro[f.centro] || []).push(f);
-  });
-  var firmas = {};
-  Object.keys(porCentro).forEach(function(centro){
-    var ordenadas = porCentro[centro].slice().sort(function(a, b){
-      return ntcFechaOrdenable(a.fecha) < ntcFechaOrdenable(b.fecha) ? -1 : 1;
-    });
-    var texto = ordenadas.map(function(f){
-      return f.fecha + '|' + f.pedidosTM + '|' + f.pedidosTT + '|' + f.vehiculosTM + '|' + f.vehiculosTT;
-    }).join(';');
-    firmas[centro] = ntcHash(texto);
-  });
-  return firmas;
-}
+/* Huella por centro, INDEPENDIENTE DEL ORDEN de las filas.
 
+   Antes se ordenaban las filas por fecha y se concatenaban, pero el criterio de
+   ordenacion no desempataba: dos filas con la misma fecha podian quedar en un
+   orden u otro segun como vinieran en el CSV. Al borrar y volver a pegar filas
+   en el Sheet cambiaba ese orden, la huella salia distinta y la tienda aparecia
+   como "modificada" sin que sus datos hubieran cambiado.
+
+   Ahora se combinan las filas con suma + xor + recuento, igual que hace el
+   script del Sheet: el resultado no depende del orden en que lleguen. */
 /* --- Fechas de cambio por tienda: las calcula el script del Sheet y las
-       publica en la pestana "Fechas cambio". Aqui solo se leen. --- */
+       publica en la pestana "Fechas cambio". Aqui solo se leen; esta pagina
+       nunca escribe en el Sheet.
+
+       Cada fila trae: Centro | Estado | Cambiado el
+         - Estado "inicial" = foto de partida, la tienda NO sale marcada.
+         - Estado "modificada" o "nueva" = cambio posterior, con su fecha.
+       El punto de partida se fija en el Sheet con "Fechas NTC > Reiniciar
+       fechas", que vuelve a poner todas las tiendas en "inicial". --- */
 const NTC_FECHAS_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQpfV_priRpFanTSYLZR1_OHxAVl9lzrd01WluyvCuXmRRF8_KsBB9pIdPyYsb_Hg6FVQXMaHuiGEKe/pub?gid=1194460574&single=true&output=csv';
 
 async function ntcFetchFechasCambio(){
   try {
-    var res = await fetch(NTC_FECHAS_CSV_URL, { cache: 'no-store' });
+    // El parametro extra evita que Google devuelva una copia cacheada de la hoja
+    // publicada: sin el, los sellos recien escritos podian tardar en aparecer.
+    var url = NTC_FECHAS_CSV_URL + '&_=' + Date.now();
+    var res = await fetch(url, { cache: 'no-store' });
     if (!res.ok) throw new Error('HTTP ' + res.status);
     var texto = await res.text();
     var lineas = texto.split(/\r?\n/).filter(function(l){ return l.trim(); });
@@ -2378,12 +2369,14 @@ async function ntcFetchFechasCambio(){
     for (var i = 1; i < lineas.length; i++){
       var cols = lineas[i].split(',');
       var centro = String(cols[0] || '').replace(/"/g, '').trim();
+      var estado = String(cols[1] || '').replace(/"/g, '').trim().toLowerCase();
       var sello  = String(cols[2] || '').replace(/"/g, '').trim(); // yyyy-MM-dd HH:mm
       if (!centro || !sello) continue;
       var partes = sello.split(' ');
       var f = String(partes[0] || '').split('-');
       if (f.length !== 3) continue;
       out[centro] = {
+        estado: estado,
         iso: partes[0],
         fecha: f[2] + '/' + f[1] + '/' + f[0],
         hora: partes[1] || ''
@@ -2392,126 +2385,90 @@ async function ntcFetchFechasCambio(){
     return out;
   } catch (e) {
     console.warn('No se pudieron leer las fechas de cambio:', e.message);
-    return null; // sin fechas la herramienta sigue funcionando, solo sin fecha en la marca
+    return null;
   }
 }
 
-function ntcCalcularModificaciones(firmasActuales, firmasAnteriores, fechas){
+/* Marcas a partir de las fechas del Sheet. Solo se marcan las tiendas que
+   existen en la oferta cargada y cuyo estado no es "inicial". */
+function ntcCalcularModificaciones(filas, fechas){
   var resultado = {};
-  Object.keys(firmasActuales).forEach(function(centro){
-    var estado = null;
-    if (!(centro in firmasAnteriores)) estado = 'nueva';
-    else if (firmasAnteriores[centro] !== firmasActuales[centro]) estado = 'modificada';
-    if (!estado) return;
-    var f = (fechas || {})[centro] || null;
+  if (!fechas) return resultado;
+  var presentes = {};
+  filas.forEach(function(f){ presentes[f.centro] = true; });
+  Object.keys(presentes).forEach(function(centro){
+    var f = fechas[centro];
+    if (!f || !f.estado || f.estado === 'inicial') return;
     resultado[centro] = {
-      estado: estado,
-      fecha: f ? f.fecha : '',
-      iso:   f ? f.iso   : '',
-      hora:  f ? f.hora  : ''
+      estado: f.estado === 'nueva' ? 'nueva' : 'modificada',
+      fecha: f.fecha,
+      iso: f.iso,
+      hora: f.hora
     };
   });
   return resultado;
 }
 
-var ntcUltimoGuardadoEl = null; // fecha de la última referencia guardada, para avisar antes de sustituirla
-
-async function ntcFetchHistorial(){
-  try {
-    var res = await fetch('https://api.jsonbin.io/v3/b/' + NTC_HIST_BIN_ID + '/latest', {
-      headers: { 'X-Bin-Meta': 'false' }
-    });
-    var body = await res.json().catch(function(){ return null; });
-    if (!res.ok) throw new Error('HTTP ' + res.status + (body && body.message ? ' — ' + body.message : ''));
-    ntcUltimoGuardadoEl = (body && body.guardadoEl) || null;
-    return (body && body.firmas) || {};
-  } catch (e) {
-    console.warn('No se pudo leer el histórico de oferta (bin ' + NTC_HIST_BIN_ID + '):', e.message);
-    return null;
-  }
+/* Fecha de la foto de partida: la mas antigua de las filas "inicial". */
+function ntcFechaOriginal(fechas){
+  if (!fechas) return null;
+  var isos = Object.keys(fechas)
+    .filter(function(c){ return fechas[c].estado === 'inicial'; })
+    .map(function(c){ return fechas[c].iso; })
+    .sort();
+  if (!isos.length) return null;
+  var p = isos[0].split('-');
+  return p[2] + '/' + p[1] + '/' + p[0];
 }
 
-async function ntcGuardarHistorial(firmas){
-  var key = ntcGetMasterKey(false);
-  if (!key) { alert('Sin Master Key: no se ha guardado el histórico de esta oferta.'); return; }
-  try {
-    var res = await fetch('https://api.jsonbin.io/v3/b/' + NTC_HIST_BIN_ID, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json', 'X-Master-Key': key },
-      body: JSON.stringify({ firmas: firmas, guardadoEl: new Date().toISOString() })
-    });
-    var body = await res.json().catch(function(){ return null; });
-    if (!res.ok) throw new Error('HTTP ' + res.status + (body && body.message ? ' — ' + body.message : '') + ' (bin: ' + NTC_HIST_BIN_ID + ')');
-  } catch (e) {
-    alert('Error guardando el histórico de oferta: ' + e.message);
-  }
-}
-
-document.getElementById('btn-ver-calendarios').textContent = 'Guardar como referencia';
-
-var ntcUltimasFirmas = null;   // huellas de la última oferta calculada, listas para guardar
 var ntcCalculando = false;
+var ntcRecalculoPendiente = false;
 
 async function ntcAutoCalcularCalendario(){
-  if (ntcCalculando) return;
+  // Si ya hay un calculo en marcha, este no se descarta: se deja pendiente y se
+  // repite al terminar. Al abrir la pagina se calcula primero con la copia
+  // guardada y luego con los datos en vivo del Sheet, y ese segundo calculo no
+  // debe perderse.
+  if (ntcCalculando) { ntcRecalculoPendiente = true; return; }
   ntcCalculando = true;
   try {
     var csv = window.NTC_getOfertaCSV && window.NTC_getOfertaCSV();
     var filas = window.NTC_getOfertaFilas && window.NTC_getOfertaFilas();
-    if (!csv || !filas) return; // aún no hay informe+coeficientes suficientes para calcular
+    if (!csv || !filas) return; // aun no hay informe+coeficientes suficientes
 
-    var firmasActuales = ntcFirmarPorCentro(filas);
-    var pedidos = await Promise.all([ntcFetchHistorial(), ntcFetchFechasCambio()]);
-    var firmasAnteriores = pedidos[0];
-    var fechasCambio = pedidos[1] || {};
-    if (firmasAnteriores === null) firmasAnteriores = {}; // sin histórico disponible: se muestra igual, sin marcar cambios
-
-    var modificadas = ntcCalcularModificaciones(firmasActuales, firmasAnteriores, fechasCambio);
+    var fechasCambio = await ntcFetchFechasCambio();
+    var modificadas = ntcCalcularModificaciones(filas, fechasCambio);
     window.NTC_setModificadas(modificadas);
 
     await ntcCargarMaestro();
-
     window.NTC_cargarOfertaDesdeCSV(csv);
-    ntcUltimasFirmas = firmasActuales;
 
     var infoFuente = window.NTC_getInformeFuente ? window.NTC_getInformeFuente() : null;
     if (infoFuente && infoFuente.origen) {
       window.NTC_setFuente(infoFuente.origen === 'sheets' ? 'sheets' : 'cache', infoFuente.fecha);
     }
-    var esEnVivo = !infoFuente || infoFuente.origen === 'sheets';
-    var btnGuardarRef = document.getElementById('btn-ver-calendarios');
-    btnGuardarRef.disabled = !esEnVivo;
-    btnGuardarRef.title = esEnVivo ? '' : 'Esperando datos en vivo de Sheets antes de poder guardar una referencia.';
 
-    var nota = document.getElementById('btn-ver-calendarios-nota');
+    var nota = document.getElementById('nota-fechas');
     if (nota) {
-      nota.textContent = !esEnVivo
-        ? 'Mostrando copia guardada — esperando confirmación en vivo de Sheets…'
-        : (ntcUltimoGuardadoEl
-            ? 'Referencia guardada el ' + new Date(ntcUltimoGuardadoEl).toLocaleString('es-ES')
-            : 'Todavía no hay ninguna referencia guardada');
+      if (!fechasCambio) {
+        nota.textContent = 'No se han podido leer las fechas de cambio del Sheets';
+      } else {
+        var original = ntcFechaOriginal(fechasCambio);
+        var n = Object.keys(modificadas).length;
+        nota.textContent = (original ? 'Oferta original del ' + original : 'Sin oferta original fijada') +
+          (n ? '  ·  ' + n + (n === 1 ? ' tienda con cambios' : ' tiendas con cambios') : '  ·  sin cambios');
+      }
     }
-    console.log('[NTC] Calendarios actualizados automáticamente.');
+    console.log('[NTC] Calendarios actualizados automaticamente.');
   } finally {
     ntcCalculando = false;
+    if (ntcRecalculoPendiente) {
+      ntcRecalculoPendiente = false;
+      ntcAutoCalcularCalendario();
+    }
   }
 }
 window.NTC_onOfertaLista = ntcAutoCalcularCalendario;
-
-document.getElementById('btn-ver-calendarios').addEventListener('click', function(){
-  if (!ntcUltimasFirmas) {
-    alert('Todavía no hay una oferta calculada (espera a que cargue el informe y los coeficientes).');
-    return;
-  }
-  var aviso = 'Vas a sustituir la referencia COMPARTIDA que usa todo el equipo para detectar cambios.\n\n' +
-    (ntcUltimoGuardadoEl
-      ? 'Referencia actual guardada el ' + new Date(ntcUltimoGuardadoEl).toLocaleString('es-ES') + '.\n\n'
-      : 'Todavía no hay ninguna referencia guardada.\n\n') +
-    'Esta acción no se puede deshacer. ¿Seguro que quieres continuar?';
-  if (confirm(aviso)){
-    ntcGuardarHistorial(ntcUltimasFirmas);
-  }
-});
 
 function ntcNombreArchivo(centro, anio){
   return 'C-' + centro + ' Planificación Anual Oferta ' + anio + ' - NTC.pdf';
@@ -2746,7 +2703,8 @@ function ntcAbrirSelectorPDF(){
 }
 
 document.getElementById('btn-pdf-todas').addEventListener('click', function(){
-  if (!ntcUltimasFirmas) {
+  var lista = window.NTC_getListaCompleta ? window.NTC_getListaCompleta() : null;
+  if (!lista || !lista.length) {
     alert('Todavía no hay calendarios calculados (espera a que cargue el informe y los coeficientes).');
     return;
   }
