@@ -2781,7 +2781,7 @@ document.getElementById('btn-pdf-todas').addEventListener('click', function(){
   var btnImp = document.getElementById('btnImp');
   if (!btnImp) return;
 
-  var NTC_POWER_AUTOMATE_URL = 'https://make.powerautomate.com/environments/edd8da83-0be4-eaee-af31-307f252e4645/solutions/~preferred/flows/aff1f14f-3eed-df95-8bd7-1c3131fdf05b/details';
+  var NTC_POWER_AUTOMATE_URL = 'https://make.powerautomate.com/environments/edd8da83-0be4-eaee-af31-307f252e4645/flows';
   var btnPA = document.createElement('button');
   btnPA.id = 'btn-power-automate';
   btnPA.textContent = '📧 Enviar por Power Automate';
@@ -2789,6 +2789,27 @@ document.getElementById('btn-pdf-todas').addEventListener('click', function(){
   btnImp.insertAdjacentElement('afterend', btnPA);
   btnPA.addEventListener('click', function(){
     window.open(NTC_POWER_AUTOMATE_URL, '_blank');
+  });
+
+  var NTC_EXCEL_PLANIFICACIONES_URL = 'https://mercadona365-my.sharepoint.com/:f:/r/personal/pmiron_mercadona_es/Documents/Planificaciones%20NTC?d=w4d4c095eb753475bb708a20631d9e58c&csf=1&web=1&e=DLda4j';
+  var NTC_EXCEL_REPLANIFICACIONES_URL = 'https://mercadona365-my.sharepoint.com/:f:/r/personal/pmiron_mercadona_es/Documents/Replanificaciones%20NTC?d=wf86dae77662f4e6c9ba7c6397fb6b5cc&csf=1&web=1&e=8DyAMf';
+
+  var btnExcelPlan = document.createElement('button');
+  btnExcelPlan.id = 'btn-excel-planificaciones';
+  btnExcelPlan.textContent = '📁 Carpeta Planificaciones';
+  btnExcelPlan.className = btnImp.className;
+  btnPA.insertAdjacentElement('afterend', btnExcelPlan);
+  btnExcelPlan.addEventListener('click', function(){
+    window.open(NTC_EXCEL_PLANIFICACIONES_URL, '_blank');
+  });
+
+  var btnExcelRepl = document.createElement('button');
+  btnExcelRepl.id = 'btn-excel-replanificaciones';
+  btnExcelRepl.textContent = '📁 Carpeta Replanificaciones';
+  btnExcelRepl.className = btnImp.className;
+  btnExcelPlan.insertAdjacentElement('afterend', btnExcelRepl);
+  btnExcelRepl.addEventListener('click', function(){
+    window.open(NTC_EXCEL_REPLANIFICACIONES_URL, '_blank');
   });
 })();
 </script>
