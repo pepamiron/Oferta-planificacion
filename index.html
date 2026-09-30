@@ -2255,6 +2255,18 @@ window.NTC_getListaCompleta = function(){
     };
   });
 };
+// --- Puente: datos de la tienda actualmente seleccionada (para el correo) ---
+window.NTC_getInfoTiendaActual = function(){
+  var c = document.getElementById('sel').value;
+  if (!c || !DATOS.stores[c]) return null;
+  var m = META[c] || {};
+  return {
+    centro: c,
+    anio: DATOS.stores[c].anio,
+    denominacion: m.denominacion || '',
+    poblacion: m.poblacion || ''
+  };
+};
 // --- Puente: indicador de si los datos son en vivo o de caché ---
 window.NTC_setFuente = function(origen, fecha){
   setFuente(origen, fecha);
@@ -2762,6 +2774,23 @@ document.getElementById('btn-pdf-todas').addEventListener('click', function(){
   // La guia no se abre sola: solo con el boton "¿Cómo funciona?".
 })();
 
+</script>
+
+<script>
+(function ntcInsertarBotonPowerAutomate(){
+  var btnImp = document.getElementById('btnImp');
+  if (!btnImp) return;
+
+  var NTC_POWER_AUTOMATE_URL = 'https://make.powerautomate.com/environments/edd8da83-0be4-eaee-af31-307f252e4645/solutions/~preferred/flows/aff1f14f-3eed-df95-8bd7-1c3131fdf05b/details';
+  var btnPA = document.createElement('button');
+  btnPA.id = 'btn-power-automate';
+  btnPA.textContent = '📧 Enviar por Power Automate';
+  btnPA.className = btnImp.className;
+  btnImp.insertAdjacentElement('afterend', btnPA);
+  btnPA.addEventListener('click', function(){
+    window.open(NTC_POWER_AUTOMATE_URL, '_blank');
+  });
+})();
 </script>
 </body>
 </html>
