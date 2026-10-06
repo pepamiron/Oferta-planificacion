@@ -422,7 +422,7 @@
   <div class="panel">
     <h2>Resultado</h2>
     <div class="toolbar">
-      <input type="text" id="search" placeholder="Buscar por centro o región…">
+      <input type="text" id="search" placeholder="Centros o regiones (separados por coma): 2129, 2595…">
       <select id="filter-mes">
         <option value="">Todos los meses</option>
       </select>
@@ -1001,7 +1001,12 @@ function currentFiltered() {
   const q = document.getElementById('search').value.trim().toLowerCase();
   const mesFiltro = document.getElementById('filter-mes').value;
   let rows = merged;
-  if (q) rows = rows.filter(r => r.centro.toLowerCase().includes(q) || (r.region || '').toLowerCase().includes(q));
+  // Varias tiendas/regiones a la vez: separadas por coma, punto y coma, espacio o pegadas de Excel
+  const terms = q ? q.split(/[\s,;]+/).filter(Boolean) : [];
+  if (terms.length) rows = rows.filter(r => {
+    const c = r.centro.toLowerCase(), g = (r.region || '').toLowerCase();
+    return terms.some(t => c.includes(t) || g.includes(t));
+  });
   if (mesFiltro) rows = rows.filter(r => r.mes === mesFiltro);
   if (sortState.key) {
     rows = rows.slice().sort((a, b) => {
